@@ -116,11 +116,28 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
+  // FIXED: Profile picture update handler
   Widget _buildProfileAvatar(ProfileController profileController) {
     return Obx(() => GestureDetector(
           onTap: profileController.isUpdatingPhoto.value
               ? null
-              : () => profileController.updateProfilePicture(),
+              : () async {
+                  // Call updateProfilePicture without auto success message
+                  bool success = await profileController.updateProfilePicture(
+                      showSuccessMessage: false);
+
+                  if (success) {
+                    // Show our own success message
+                    Get.snackbar(
+                      'Success',
+                      'Profile picture updated successfully!',
+                      snackPosition: SnackPosition.TOP,
+                      backgroundColor: AppColors.success,
+                      colorText: Colors.white,
+                      duration: const Duration(seconds: 2),
+                    );
+                  }
+                },
           child: Stack(
             children: [
               Container(
@@ -304,7 +321,7 @@ class AccountScreen extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Full Name Field - FIXED
+          // Full Name Field
           _buildInputField(
             label: 'Full Name',
             controller: profileController.nameController,
@@ -326,7 +343,7 @@ class AccountScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // Phone Field - FIXED with validation
+          // Phone Field
           _buildInputField(
             label: 'Phone Number (Optional)',
             controller: profileController.phoneController,
@@ -664,19 +681,19 @@ class AccountScreen extends StatelessWidget {
         child: InkWell(
           onTap: profileController.isLoading.value
               ? null
-              : () => _showEditProfileDialog(profileController),
+              : () => _showEditProfileBottomSheet(profileController),
           borderRadius: BorderRadius.circular(16),
-          child: Center(
+          child: const Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.edit_outlined,
                   color: Colors.white,
                   size: 20,
                 ),
-                const SizedBox(width: 12),
-                const Text(
+                SizedBox(width: 12),
+                Text(
                   'Edit Profile',
                   style: TextStyle(
                     color: Colors.white,
@@ -692,6 +709,7 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
+  // FIXED: Save button with proper error handling
   Widget _buildSaveButton(
       ProfileController profileController, bool hasChanges) {
     return Obx(() {
@@ -728,7 +746,8 @@ class AccountScreen extends StatelessWidget {
                     // Validate form first
                     if (profileController.profileFormKey.currentState!
                         .validate()) {
-                      bool success = await profileController.updateProfile();
+                      bool success = await profileController.updateProfile(
+                          showSuccessMessage: false);
                       if (success) {
                         Get.snackbar(
                           'Success',
@@ -778,333 +797,733 @@ class AccountScreen extends StatelessWidget {
     });
   }
 
-  // Add the edit profile dialog method
-  void _showEditProfileDialog(ProfileController profileController) {
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: Colors.grey[900],
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+  // Show edit profile bottom sheet
+  void _showEditProfileBottomSheet(ProfileController profileController) {
+    Get.bottomSheet(
+      _EditProfileBottomSheet(profileController: profileController),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      enableDrag: true,
+    );
+  }
+
+  Widget _buildAccountActions(ProfileController profileController) {
+    return Column(
+      children: [
+        // Refresh Profile Button
+        _buildActionButton(
+          title: 'Refresh Profile',
+          subtitle: 'Reload profile data from server',
+          icon: Icons.refresh_outlined,
+          onTap: () => profileController.refreshProfile(),
+          iconColor: AppColors.buttonPrimary,
         ),
-        title: const Row(
-          children: [
-            Icon(Icons.edit_outlined, color: Colors.white, size: 24),
-            SizedBox(width: 12),
-            Text(
-              'Edit Profile',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+
+        const SizedBox(height: 16),
+
+        // Sign Out Button
+        _buildActionButton(
+          title: 'Sign Out',
+          subtitle: 'Sign out from your account',
+          icon: Icons.logout_outlined,
+          onTap: () => profileController.signOut(),
+          iconColor: AppColors.warning,
+        ),
+
+        const SizedBox(height: 16),
+
+        // Delete Account Button
+        _buildActionButton(
+          title: 'Delete Account',
+          subtitle: 'Permanently delete your account',
+          icon: Icons.delete_outline,
+          onTap: () => profileController.deleteAccount(),
+          iconColor: AppColors.error,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required VoidCallback onTap,
+    required Color iconColor,
+  }) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.containerBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: iconColor.withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: iconColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: iconColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: iconColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  color: AppColors.iconSecondary,
+                  size: 20,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-        content: Container(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'You can edit your profile information below. Changes will be saved when you tap "Save Changes".',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  height: 1.4,
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+}
+
+// Bottom Sheet Widget for Editing Profile
+class _EditProfileBottomSheet extends StatefulWidget {
+  final ProfileController profileController;
+
+  const _EditProfileBottomSheet({required this.profileController});
+
+  @override
+  State<_EditProfileBottomSheet> createState() =>
+      _EditProfileBottomSheetState();
+}
+
+class _EditProfileBottomSheetState extends State<_EditProfileBottomSheet> {
+  late TextEditingController _nameController;
+  late TextEditingController _phoneController;
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  bool _hasChanges = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Create separate controllers for the bottom sheet
+    _nameController = TextEditingController(
+      text: widget.profileController.currentUser.value?.name ?? '',
+    );
+    _phoneController = TextEditingController(
+      text: widget.profileController.currentUser.value?.phone ?? '',
+    );
+
+    // Listen for changes
+    _nameController.addListener(_checkForChanges);
+    _phoneController.addListener(_checkForChanges);
+  }
+
+  void _checkForChanges() {
+    final user = widget.profileController.currentUser.value;
+    if (user != null) {
+      final hasNameChange = _nameController.text.trim() != user.name;
+      final hasPhoneChange = _phoneController.text.trim() != (user.phone ?? '');
+
+      setState(() {
+        _hasChanges = hasNameChange || hasPhoneChange;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(25),
+          topRight: Radius.circular(25),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[600],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Header
+          Container(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4A90E2).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.edit_outlined,
+                    color: Color(0xFF4A90E2),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Edit Profile',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Update your personal information',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Get.back(),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Form
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // FIXED: Profile Picture Section
+                    Center(
+                      child: GestureDetector(
+                        onTap: () async {
+                          // Close bottom sheet first
+                          Get.back();
+
+                          // Wait for bottom sheet to close
+                          await Future.delayed(
+                              const Duration(milliseconds: 300));
+
+                          // Update profile picture without auto success message
+                          bool success = await widget.profileController
+                              .updateProfilePicture(showSuccessMessage: false);
+
+                          if (success) {
+                            // Show success message
+                            Get.snackbar(
+                              'Success',
+                              'Profile picture updated successfully!',
+                              snackPosition: SnackPosition.TOP,
+                              backgroundColor: AppColors.success,
+                              colorText: Colors.white,
+                              duration: const Duration(seconds: 2),
+                            );
+                          }
+                        },
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF9C27B0),
+                                    Color(0xFFE91E63)
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(40),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(40),
+                                child: _buildProfileImage(),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF4A90E2),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border:
+                                      Border.all(color: Colors.white, width: 2),
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Full Name Field
+                    _buildBottomSheetInputField(
+                      label: 'Full Name',
+                      controller: _nameController,
+                      validator: widget.profileController.validateName,
+                      icon: Icons.person_outline,
+                      hint: 'Enter your full name',
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Email Field (Read-only)
+                    _buildBottomSheetReadOnlyField(
+                      label: 'Email Address',
+                      value:
+                          widget.profileController.currentUser.value?.email ??
+                              'Loading...',
+                      icon: Icons.email_outlined,
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Phone Field
+                    _buildBottomSheetInputField(
+                      label: 'Phone Number (Optional)',
+                      controller: _phoneController,
+                      validator: widget.profileController.validatePhone,
+                      icon: Icons.phone_outlined,
+                      hint: 'Enter your phone number',
+                      keyboardType: TextInputType.phone,
+                    ),
+
+                    const SizedBox(height: 40),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // Quick Edit Options
-              _buildQuickEditOption(
-                'Change Name',
-                'Update your display name',
-                Icons.person_outline,
-                () {
-                  Get.back();
-                  // Focus on name field
-                  FocusScope.of(Get.context!).requestFocus(FocusNode());
-                  Future.delayed(const Duration(milliseconds: 100), () {
-                    profileController.nameController.selection = TextSelection(
-                      baseOffset: 0,
-                      extentOffset:
-                          profileController.nameController.text.length,
-                    );
-                  });
-                },
-              ),
-
-              const SizedBox(height: 12),
-
-              _buildQuickEditOption(
-                'Change Phone',
-                'Update your phone number',
-                Icons.phone_outlined,
-                () {
-                  Get.back();
-                  // Focus on phone field
-                  FocusScope.of(Get.context!).requestFocus(FocusNode());
-                  Future.delayed(const Duration(milliseconds: 100), () {
-                    profileController.phoneController.selection = TextSelection(
-                      baseOffset: 0,
-                      extentOffset:
-                          profileController.phoneController.text.length,
-                    );
-                  });
-                },
-              ),
-
-              const SizedBox(height: 12),
-
-              _buildQuickEditOption(
-                'Change Photo',
-                'Update your profile picture',
-                Icons.camera_alt_outlined,
-                () {
-                  Get.back();
-                  profileController.updateProfilePicture();
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.grey),
             ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              // Force a form validation to show any issues
-              profileController.profileFormKey.currentState?.validate();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4A90E2),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+
+          // Bottom Action Buttons
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.grey[850],
+              border: Border(
+                top: BorderSide(
+                  color: Colors.grey[700]!,
+                  width: 1,
+                ),
               ),
             ),
-            child: const Text('Got it'),
+            child: Row(
+              children: [
+                // Cancel Button
+                Expanded(
+                  flex: 1,
+                  child: Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[700],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => Get.back(),
+                        borderRadius: BorderRadius.circular(12),
+                        child: const Center(
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 16),
+
+                // Save Button
+                Expanded(
+                  flex: 2,
+                  child: Obx(() => AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        height: 50,
+                        decoration: BoxDecoration(
+                          gradient: _hasChanges &&
+                                  !widget.profileController.isLoading.value
+                              ? const LinearGradient(
+                                  colors: [
+                                    Color(0xFF4A90E2),
+                                    Color(0xFF357ABD)
+                                  ],
+                                )
+                              : LinearGradient(
+                                  colors: [
+                                    Colors.grey[600]!,
+                                    Colors.grey[600]!,
+                                  ],
+                                ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: (_hasChanges &&
+                                    !widget.profileController.isLoading.value)
+                                ? _saveChanges
+                                : null,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Center(
+                              child: widget.profileController.isLoading.value
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _hasChanges
+                                              ? Icons.save_outlined
+                                              : Icons.check_circle_outline,
+                                          color: Colors.white,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          _hasChanges
+                                              ? 'Save Changes'
+                                              : 'No Changes',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ),
+                      )),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildQuickEditOption(
-    String title,
-    String subtitle,
-    IconData icon,
-    VoidCallback onTap,
-  ) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
+  Widget _buildProfileImage() {
+    final user = widget.profileController.currentUser.value;
+    final photoUrl = user?.photoUrl;
+
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      if (photoUrl.startsWith('http')) {
+        return Image.network(
+          photoUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildInitials(),
+        );
+      } else {
+        return FutureBuilder<bool>(
+          future: File(photoUrl).exists(),
+          builder: (context, snapshot) {
+            if (snapshot.data == true) {
+              return Image.file(
+                File(photoUrl),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => _buildInitials(),
+              );
+            }
+            return _buildInitials();
+          },
+        );
+      }
+    }
+
+    return _buildInitials();
+  }
+
+  Widget _buildInitials() {
+    return Center(
+      child: Text(
+        widget.profileController.getUserInitials(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomSheetInputField({
+    required String label,
+    required TextEditingController controller,
+    String? Function(String?)? validator,
+    required IconData icon,
+    required String hint,
+    TextInputType? keyboardType,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
+            color: Colors.grey[800],
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.grey[600]!,
+              width: 1,
+            ),
+          ),
+          child: TextFormField(
+            controller: controller,
+            validator: validator,
+            keyboardType: keyboardType,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+            ),
+            decoration: InputDecoration(
+              prefixIcon: Icon(
+                icon,
+                color: Colors.grey[400],
+                size: 20,
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 18,
+              ),
+              hintText: hint,
+              hintStyle: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomSheetReadOnlyField({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          decoration: BoxDecoration(
+            color: Colors.grey[800]!.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.grey[700]!,
               width: 1,
             ),
           ),
           child: Row(
             children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4A90E2).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  icon,
-                  color: const Color(0xFF4A90E2),
-                  size: 16,
-                ),
+              Icon(
+                icon,
+                color: Colors.grey[500],
+                size: 20,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: Colors.grey[300],
+                    fontSize: 16,
+                  ),
                 ),
               ),
               const Icon(
-                Icons.chevron_right,
-                color: Colors.white38,
+                Icons.lock_outline,
+                color: Colors.grey,
                 size: 18,
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
-}
 
-Widget _buildAccountActions(ProfileController profileController) {
-  return Column(
-    children: [
-      // Refresh Profile Button
-      _buildActionButton(
-        title: 'Refresh Profile',
-        subtitle: 'Reload profile data from server',
-        icon: Icons.refresh_outlined,
-        onTap: () => profileController.refreshProfile(),
-        iconColor: AppColors.buttonPrimary,
-      ),
+  // FIXED: _saveChanges method
+  Future<void> _saveChanges() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-      const SizedBox(height: 16),
+    try {
+      // Update the main controllers with new values
+      widget.profileController.nameController.text =
+          _nameController.text.trim();
+      widget.profileController.phoneController.text =
+          _phoneController.text.trim();
 
-      // Sign Out Button
-      _buildActionButton(
-        title: 'Sign Out',
-        subtitle: 'Sign out from your account',
-        icon: Icons.logout_outlined,
-        onTap: () => profileController.signOut(),
-        iconColor: AppColors.warning,
-      ),
+      // Save changes WITHOUT showing success message (we'll show our own)
+      bool success = await widget.profileController
+          .updateProfile(showSuccessMessage: false);
 
-      const SizedBox(height: 16),
+      if (success) {
+        // Close bottom sheet first
+        Get.back();
 
-      // Delete Account Button
-      _buildActionButton(
-        title: 'Delete Account',
-        subtitle: 'Permanently delete your account',
-        icon: Icons.delete_outline,
-        onTap: () => profileController.deleteAccount(),
-        iconColor: AppColors.error,
-      ),
-    ],
-  );
-}
+        // Wait a moment for the bottom sheet to close
+        await Future.delayed(const Duration(milliseconds: 200));
 
-Widget _buildActionButton({
-  required String title,
-  required String subtitle,
-  required IconData icon,
-  required VoidCallback onTap,
-  required Color iconColor,
-}) {
-  return Container(
-    width: double.infinity,
-    decoration: BoxDecoration(
-      color: AppColors.containerBackground,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(
-        color: iconColor.withOpacity(0.2),
-        width: 1,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 8,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: iconColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right,
-                color: AppColors.iconSecondary,
-                size: 20,
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-String _formatDate(DateTime date) {
-  final months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec'
-  ];
-
-  return '${date.day} ${months[date.month - 1]} ${date.year}';
+        // Show success message
+        Get.snackbar(
+          'Success',
+          'Profile updated successfully!',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: AppColors.success,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
+      }
+    } catch (e) {
+      print('Error in _saveChanges: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to save changes. Please try again.',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    }
+  }
 }
