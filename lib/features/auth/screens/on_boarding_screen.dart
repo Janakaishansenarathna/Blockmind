@@ -1,3 +1,4 @@
+import 'package:app/utils/constants/app_images.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,26 +25,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       title: 'Block Distracting Apps',
       description:
           'Easily block social media and other distracting apps to stay focused on what matters.',
-      imagePath: 'assets/images/onboarding1.png',
+      imagePath: AppImages.onboarding1,
     ),
     OnboardingPage(
       title: 'Create Custom Schedules',
       description:
           'Set up custom blocking schedules for work, study, sleep, or any other focused time.',
-      imagePath: 'assets/images/onboarding2.png',
+      imagePath: AppImages.onboarding2,
     ),
     OnboardingPage(
       title: 'Quick Block Mode',
       description:
           'Instantly block distractions with a single tap when you need immediate focus.',
-      imagePath: 'assets/images/onboarding3.png',
+      imagePath: AppImages.onboarding3,
     ),
     OnboardingPage(
-      title: 'Track Your Progress',
-      description:
-          'Monitor your productivity improvements and celebrate your digital wellbeing journey.',
-      imagePath: 'assets/images/onboarding4.png',
-    ),
+        title: 'Track Your Progress',
+        description:
+            'Monitor your productivity improvements and celebrate your digital wellbeing journey.',
+        imagePath: AppImages.onboarding4),
   ];
 
   @override

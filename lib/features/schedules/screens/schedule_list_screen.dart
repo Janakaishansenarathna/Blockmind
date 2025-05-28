@@ -5,7 +5,7 @@ import '../../../utils/constants/app_colors.dart';
 import '../../../utils/themes/gradient_background.dart';
 import '../../../data/local/models/schedule_model.dart';
 import '../controllers/schedule_controller.dart';
-import 'edit_schedule_screen.dart';
+import 'create_schedule_screen.dart';
 import 'schedule_detail_screen.dart';
 
 class ScheduleListScreen extends StatefulWidget {
@@ -136,8 +136,6 @@ class _ScheduleListScreenState extends State<ScheduleListScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              _buildActiveScheduleIndicator(),
               const SizedBox(height: 16),
               // Add New Schedule Button
               SizedBox(

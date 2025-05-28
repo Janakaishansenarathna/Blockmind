@@ -9,7 +9,6 @@ import '../../../data/services/firebase_auth_service.dart';
 import '../../../data/repositories/usage_repository.dart';
 import '../../../data/local/models/usage_log_model.dart';
 import '../../../utils/helpers/loading_helper.dart';
-import '../../../routes/routes.dart';
 import '../../auth/controllers/auth_controller.dart';
 
 class ProfileController extends GetxController {
@@ -31,11 +30,13 @@ class ProfileController extends GetxController {
   Rx<UserModel?> currentUser = Rx<UserModel?>(null);
   RxBool isLoading = false.obs;
   RxBool isLoadingStats = false.obs;
+  RxBool isUpdatingPhoto = false.obs; // Separate loading state for photo
   RxString errorMessage = ''.obs;
 
   // Form controllers
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
   final GlobalKey<FormState> profileFormKey = GlobalKey<FormState>();
 
   // Usage statistics
@@ -61,6 +62,10 @@ class ProfileController extends GetxController {
   RxBool quickModeShowBlock = false.obs;
   RxBool showActivityNotifications = true.obs;
 
+  // Premium status
+  RxBool isPremiumUser = false.obs;
+  RxInt premiumDaysLeft = 0.obs;
+
   // Storage keys
   static const String settingsKey = 'profile_settings';
   static const String usageStatsKey = 'usage_stats';
@@ -76,6 +81,7 @@ class ProfileController extends GetxController {
   void onClose() {
     nameController.dispose();
     emailController.dispose();
+    phoneController.dispose();
     super.onClose();
   }
 
@@ -84,9 +90,10 @@ class ProfileController extends GetxController {
     await loadUserProfile();
     await loadProfileSettings();
     await loadUsageStatistics();
+    await _checkPremiumStatus();
   }
 
-  // Load user profile - improved flow
+  // FIXED: Load user profile with better error handling
   Future<void> loadUserProfile() async {
     try {
       isLoading.value = true;
@@ -122,6 +129,7 @@ class ProfileController extends GetxController {
       if (user != null) {
         currentUser.value = user;
         _updateFormControllers();
+        await _checkPremiumStatus();
         print('User profile loaded successfully');
       } else {
         throw Exception('No user found in any source');
@@ -143,36 +151,78 @@ class ProfileController extends GetxController {
     }
   }
 
-  // Update form controllers with user data
+  // FIXED: Update form controllers properly without causing loops
   void _updateFormControllers() {
     if (currentUser.value != null) {
-      nameController.text = currentUser.value!.name;
-      emailController.text = currentUser.value!.email;
-      print('Form controllers updated with: ${currentUser.value!.name}');
+      final user = currentUser.value!;
+
+      // Only update if different to avoid loops
+      if (nameController.text != user.name) {
+        nameController.text = user.name;
+      }
+      if (emailController.text != user.email) {
+        emailController.text = user.email;
+      }
+      if (phoneController.text != (user.phone ?? '')) {
+        phoneController.text = user.phone ?? '';
+      }
+
+      print('Form controllers updated with: ${user.name}');
     }
   }
 
-  // Update user profile - FIXED VERSION
+  // Check premium status
+  Future<void> _checkPremiumStatus() async {
+    try {
+      if (currentUser.value != null) {
+        isPremiumUser.value = currentUser.value!.isPremiumActive;
+        premiumDaysLeft.value = currentUser.value!.premiumDaysRemaining;
+
+        print(
+            'Premium status: ${isPremiumUser.value}, Days left: ${premiumDaysLeft.value}');
+      }
+    } catch (e) {
+      print('Error checking premium status: $e');
+      isPremiumUser.value = false;
+      premiumDaysLeft.value = 0;
+    }
+  }
+
+  // FIXED: Simplified and more reliable update profile method
   Future<bool> updateProfile() async {
     try {
       print('Starting profile update...');
 
+      // Validate form first
       if (!profileFormKey.currentState!.validate()) {
-        print('Form validation failed');
+        Get.snackbar(
+          'Validation Error',
+          'Please fix the errors in the form',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
         return false;
       }
 
       if (currentUser.value == null) {
         errorMessage.value = 'No user data available';
-        print('No current user data');
         return false;
       }
 
       final newName = nameController.text.trim();
-      if (newName == currentUser.value!.name) {
+      final newPhone = phoneController.text.trim();
+      final currentName = currentUser.value!.name;
+      final currentPhone = currentUser.value!.phone ?? '';
+
+      // Check if there are actual changes
+      bool hasNameChange = newName != currentName;
+      bool hasPhoneChange = newPhone != currentPhone;
+
+      if (!hasNameChange && !hasPhoneChange) {
         Get.snackbar(
           'No Changes',
-          'No changes to save',
+          'No changes detected to save',
           snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.blue,
           colorText: Colors.white,
@@ -184,37 +234,41 @@ class ProfileController extends GetxController {
       errorMessage.value = '';
       LoadingHelper.show('Updating profile...');
 
-      print('Updating name from "${currentUser.value!.name}" to "$newName"');
+      print('Changes detected - Name: $hasNameChange, Phone: $hasPhoneChange');
 
       UserModel updatedUser;
 
-      // Method 1: Try AuthController first
-      if (_authController != null) {
-        print('Trying to update through AuthController...');
-        bool success = await _authController!.updateUserProfile(name: newName);
+      try {
+        // Method 1: Try AuthController first
+        if (_authController != null) {
+          print('Updating through AuthController...');
+          bool success = await _authController!.updateUserProfile(
+            name: hasNameChange ? newName : null,
+            phone: hasPhoneChange ? newPhone : null,
+          );
 
-        if (success && _authController!.currentUser.value != null) {
-          updatedUser = _authController!.currentUser.value!;
-          print('AuthController update successful');
-        } else {
-          throw Exception('AuthController update failed');
+          if (success && _authController!.currentUser.value != null) {
+            updatedUser = _authController!.currentUser.value!;
+            print('AuthController update successful');
+          } else {
+            throw Exception('AuthController update failed');
+          }
         }
-      }
-      // Method 2: Direct update through auth service
-      else {
-        print('Trying direct update through auth service...');
-        updatedUser = await _authService.updateUserProfile(
-          currentUser: currentUser.value!,
-          name: newName,
-        );
-        print('Auth service update successful');
-      }
-
-      // Method 3: Manual update if others fail
-      if (updatedUser.name == currentUser.value!.name) {
-        print('Creating manual update...');
+        // Method 2: Direct update through auth service
+        else {
+          print('Updating through auth service...');
+          updatedUser = await _authService.updateUserProfile(
+            currentUser: currentUser.value!,
+            name: hasNameChange ? newName : null,
+            phone: hasPhoneChange ? newPhone : null,
+          );
+        }
+      } catch (e) {
+        print('Service update failed, creating manual update: $e');
+        // Method 3: Manual update as fallback
         updatedUser = currentUser.value!.copyWith(
           name: newName,
+          phone: newPhone.isEmpty ? null : newPhone,
           updatedAt: DateTime.now(),
         );
       }
@@ -227,6 +281,9 @@ class ProfileController extends GetxController {
       if (_authController != null) {
         _authController!.currentUser.value = updatedUser;
       }
+
+      // Update form controllers to reflect saved state
+      _updateFormControllers();
 
       print('Profile updated successfully: ${updatedUser.name}');
 
@@ -257,47 +314,91 @@ class ProfileController extends GetxController {
     }
   }
 
-  // Update profile picture - FIXED VERSION
+  // FIXED: Enhanced profile picture update with proper local storage
   Future<void> updateProfilePicture() async {
     try {
+      // Show image selection options
+      String? source = await _showImageSourceDialog();
+      if (source == null) return;
+
+      ImageSource imageSource =
+          source == 'camera' ? ImageSource.camera : ImageSource.gallery;
+
       final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+        source: imageSource,
         maxWidth: 512,
         maxHeight: 512,
         imageQuality: 70,
       );
 
       if (image != null) {
-        isLoading.value = true;
+        isUpdatingPhoto.value = true;
         LoadingHelper.show('Updating profile picture...');
 
-        // For now, just save the local path
-        // TODO: Implement Firebase Storage upload
         String imagePath = image.path;
         print('Selected image: $imagePath');
 
+        // Verify the file exists and is valid
+        File imageFile = File(imagePath);
+        if (!await imageFile.exists()) {
+          throw Exception('Selected image file not found');
+        }
+
+        // Check file size (optional - limit to 5MB)
+        int fileSizeInBytes = await imageFile.length();
+        if (fileSizeInBytes > 5 * 1024 * 1024) {
+          throw Exception('Image file is too large (max 5MB)');
+        }
+
         UserModel updatedUser;
 
-        // Try AuthController first
-        if (_authController != null) {
-          bool success =
-              await _authController!.updateUserProfile(photoUrl: imagePath);
-          if (success && _authController!.currentUser.value != null) {
-            updatedUser = _authController!.currentUser.value!;
-          } else {
-            throw Exception('AuthController photo update failed');
+        try {
+          // Method 1: Try AuthController first
+          if (_authController != null) {
+            print('Updating photo through AuthController...');
+            bool success = await _authController!.updateUserProfile(
+              photoUrl: imagePath,
+            );
+
+            if (success && _authController!.currentUser.value != null) {
+              updatedUser = _authController!.currentUser.value!;
+              print('AuthController photo update successful');
+            } else {
+              throw Exception('AuthController photo update failed');
+            }
           }
-        } else {
-          // Direct update
-          updatedUser = await _authService.updateUserProfile(
-            currentUser: currentUser.value!,
+          // Method 2: Direct update through auth service
+          else {
+            print('Updating photo through auth service...');
+            updatedUser = await _authService.updateUserProfile(
+              currentUser: currentUser.value!,
+              photoUrl: imagePath,
+            );
+          }
+        } catch (e) {
+          print('Service photo update failed, creating local update: $e');
+          // Method 3: Local update as fallback
+          updatedUser = currentUser.value!.copyWith(
             photoUrl: imagePath,
+            updatedAt: DateTime.now(),
           );
         }
 
-        // Update local state
+        // Update local state immediately
         currentUser.value = updatedUser;
+
+        // Save to local storage
         await _saveUserLocally(updatedUser);
+
+        // Update AuthController if available
+        if (_authController != null) {
+          _authController!.currentUser.value = updatedUser;
+        }
+
+        // Force UI refresh
+        currentUser.refresh();
+
+        print('Profile picture updated successfully: $imagePath');
 
         Get.snackbar(
           'Success',
@@ -305,6 +406,7 @@ class ProfileController extends GetxController {
           snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.green,
           colorText: Colors.white,
+          duration: const Duration(seconds: 2),
         );
       }
     } catch (e) {
@@ -315,11 +417,55 @@ class ProfileController extends GetxController {
         snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.red,
         colorText: Colors.white,
+        duration: const Duration(seconds: 3),
       );
     } finally {
-      isLoading.value = false;
+      isUpdatingPhoto.value = false;
       LoadingHelper.hide();
     }
+  }
+
+  // ADDED: Show dialog for image source selection
+  Future<String?> _showImageSourceDialog() async {
+    return await Get.dialog<String>(
+      AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text(
+          'Select Image Source',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.white70),
+              title: const Text(
+                'Camera',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () => Get.back(result: 'camera'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.white70),
+              title: const Text(
+                'Gallery',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () => Get.back(result: 'gallery'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // Load profile settings from local storage
@@ -676,7 +822,7 @@ class ProfileController extends GetxController {
     ]);
   }
 
-  // Local storage methods - FIXED
+  // ENHANCED: Local storage methods
   Future<void> _saveUserLocally(UserModel user) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -730,28 +876,73 @@ class ProfileController extends GetxController {
   bool get hasUserData => currentUser.value != null;
   String get userName => currentUser.value?.name ?? 'User';
   String get userEmail => currentUser.value?.email ?? '';
+  String get userPhone => currentUser.value?.phone ?? '';
   String get userPhotoUrl => currentUser.value?.photoUrl ?? '';
-  bool get isPremiumUser => currentUser.value?.isPremiumActive ?? false;
-  int get premiumDaysLeft => currentUser.value?.premiumDaysRemaining ?? 0;
 
-  // Validators
+  // Premium getters
+  bool get isPremium => isPremiumUser.value;
+  int get premiumDays => premiumDaysLeft.value;
+
+  // FIXED: Better change detection
+  bool hasProfileChanges() {
+    if (currentUser.value == null) return false;
+
+    final user = currentUser.value!;
+    final nameChanged = nameController.text.trim() != user.name;
+    final phoneChanged = phoneController.text.trim() != (user.phone ?? '');
+
+    return nameChanged || phoneChanged;
+  }
+
+  // FIXED: Enhanced validation methods
   String? validateName(String? value) {
-    if (value == null || value.isEmpty) {
+    if (value == null || value.trim().isEmpty) {
       return 'Name is required';
     }
-    if (value.length < 2) {
+    if (value.trim().length < 2) {
       return 'Name must be at least 2 characters';
+    }
+    if (value.trim().length > 50) {
+      return 'Name must be less than 50 characters';
+    }
+    // Check for valid characters (letters, spaces, common punctuation)
+    if (!RegExp(r"^[a-zA-Z\s\-\'\.]+$").hasMatch(value.trim())) {
+      return 'Name contains invalid characters';
     }
     return null;
   }
 
   String? validateEmail(String? value) {
-    if (value == null || value.isEmpty) {
+    if (value == null || value.trim().isEmpty) {
       return 'Email is required';
     }
-    if (!GetUtils.isEmail(value)) {
+    if (!GetUtils.isEmail(value.trim())) {
       return 'Please enter a valid email';
     }
+    return null;
+  }
+
+  String? validatePhone(String? value) {
+    // Phone is optional, so empty is OK
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+
+    final phone = value.trim();
+
+    // Remove common formatting characters
+    final cleanPhone = phone.replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
+
+    // Check length (10-15 digits is reasonable for most countries)
+    if (cleanPhone.length < 10 || cleanPhone.length > 15) {
+      return 'Phone number must be 10-15 digits';
+    }
+
+    // Check if contains only digits (after cleaning)
+    if (!RegExp(r'^[0-9]+$').hasMatch(cleanPhone)) {
+      return 'Phone number contains invalid characters';
+    }
+
     return null;
   }
 

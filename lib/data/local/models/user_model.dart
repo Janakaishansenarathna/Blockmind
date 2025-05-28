@@ -6,6 +6,7 @@ class UserModel {
   final String id;
   final String name;
   final String email;
+  final String? phone; // ADDED: Phone number field
   final String? photoUrl;
   final bool isPremium;
   final DateTime? premiumExpiryDate;
@@ -30,6 +31,7 @@ class UserModel {
     required this.id,
     required this.name,
     required this.email,
+    this.phone, // ADDED: Phone parameter
     this.photoUrl,
     this.isPremium = false,
     this.premiumExpiryDate,
@@ -50,7 +52,8 @@ class UserModel {
   });
 
   // Factory constructor to create a user from a Firestore document
-  factory UserModel.fromFirestore(DocumentSnapshot doc) {
+  factory UserModel.fromFirestore(
+      DocumentSnapshot doc, Map<String, dynamic> userData) {
     final data = doc.data() as Map<String, dynamic>?;
 
     if (data == null) {
@@ -61,6 +64,7 @@ class UserModel {
       id: doc.id,
       name: data['name'] ?? '',
       email: data['email'] ?? '',
+      phone: data['phone'], // ADDED: Phone field
       photoUrl: data['photoUrl'],
       isPremium: data['isPremium'] ?? false,
       premiumExpiryDate: data['premiumExpiryDate'] != null
@@ -99,6 +103,7 @@ class UserModel {
       id: map['id'] ?? '',
       name: map['name'] ?? '',
       email: map['email'] ?? '',
+      phone: map['phone'], // ADDED: Phone field
       photoUrl: map['photoUrl'] ?? map['photo_url'],
       isPremium: (map['isPremium'] ?? map['is_premium']) == 1 ||
           (map['isPremium'] ?? map['is_premium']) == true,
@@ -152,6 +157,7 @@ class UserModel {
     required String id,
     required String name,
     required String email,
+    String? phone, // ADDED: Phone parameter
     String? photoUrl,
     bool isPremium = false,
   }) {
@@ -160,6 +166,7 @@ class UserModel {
       id: id,
       name: name,
       email: email,
+      phone: phone, // ADDED: Phone field
       photoUrl: photoUrl,
       isPremium: isPremium,
       maxPlansAllowed: isPremium ? 20 : 5,
@@ -178,6 +185,7 @@ class UserModel {
       id: json['id'] ?? '',
       name: json['name'] ?? '',
       email: json['email'] ?? '',
+      phone: json['phone'], // ADDED: Phone field
       photoUrl: json['photoUrl'],
       isPremium: json['isPremium'] ?? false,
       premiumExpiryDate: json['premiumExpiryDate'] != null
@@ -215,6 +223,7 @@ class UserModel {
     return {
       'name': name,
       'email': email,
+      'phone': phone, // ADDED: Phone field
       'photoUrl': photoUrl,
       'isPremium': isPremium,
       'premiumExpiryDate': premiumExpiryDate != null
@@ -246,6 +255,7 @@ class UserModel {
       'id': id,
       'name': name,
       'email': email,
+      'phone': phone, // ADDED: Phone field
       'photoUrl': photoUrl,
       'photo_url': photoUrl, // compatibility
       'isPremium': isPremium ? 1 : 0,
@@ -291,6 +301,7 @@ class UserModel {
       'id': id,
       'name': name,
       'email': email,
+      'phone': phone, // ADDED: Phone field
       'photoUrl': photoUrl,
       'isPremium': isPremium,
       'premiumExpiryDate': premiumExpiryDate?.millisecondsSinceEpoch,
@@ -321,11 +332,12 @@ class UserModel {
     return UserModel.fromJson(map);
   }
 
-  // Copy with method for updating user properties
+  // Copy with method for updating user properties - UPDATED with phone
   UserModel copyWith({
     String? id,
     String? name,
     String? email,
+    String? phone, // ADDED: Phone parameter
     String? photoUrl,
     bool? isPremium,
     DateTime? premiumExpiryDate,
@@ -348,6 +360,7 @@ class UserModel {
       id: id ?? this.id,
       name: name ?? this.name,
       email: email ?? this.email,
+      phone: phone ?? this.phone, // ADDED: Phone field
       photoUrl: photoUrl ?? this.photoUrl,
       isPremium: isPremium ?? this.isPremium,
       premiumExpiryDate: premiumExpiryDate ?? this.premiumExpiryDate,
@@ -443,6 +456,28 @@ class UserModel {
     if (years == 1) return '1 year ago';
     return '$years years ago';
   }
+
+  /// Get formatted phone number for display
+  String get formattedPhone {
+    if (phone == null || phone!.isEmpty) return '';
+
+    // Basic phone formatting (you can enhance this based on your needs)
+    final cleanPhone = phone!.replaceAll(RegExp(r'[^\d]'), '');
+
+    if (cleanPhone.length == 10) {
+      // US format: (123) 456-7890
+      return '(${cleanPhone.substring(0, 3)}) ${cleanPhone.substring(3, 6)}-${cleanPhone.substring(6)}';
+    } else if (cleanPhone.length == 11 && cleanPhone.startsWith('1')) {
+      // US format with country code: +1 (123) 456-7890
+      return '+1 (${cleanPhone.substring(1, 4)}) ${cleanPhone.substring(4, 7)}-${cleanPhone.substring(7)}';
+    }
+
+    // Return original if no specific format matches
+    return phone!;
+  }
+
+  /// Check if phone number is provided
+  bool get hasPhoneNumber => phone != null && phone!.trim().isNotEmpty;
 
   /// Update last login time
   UserModel updateLastLogin() {
@@ -597,6 +632,7 @@ class UserModel {
         other.id == id &&
         other.name == name &&
         other.email == email &&
+        other.phone == phone && // ADDED: Phone comparison
         other.photoUrl == photoUrl &&
         other.isPremium == isPremium &&
         other.premiumExpiryDate == premiumExpiryDate &&
@@ -622,6 +658,7 @@ class UserModel {
       id,
       name,
       email,
+      phone, // ADDED: Phone to hash
       photoUrl,
       isPremium,
       premiumExpiryDate,
@@ -644,6 +681,6 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(id: $id, name: $name, email: $email, isPremium: $isPremium, tier: $userTier)';
+    return 'UserModel(id: $id, name: $name, email: $email, phone: $phone, isPremium: $isPremium, tier: $userTier)';
   }
 }

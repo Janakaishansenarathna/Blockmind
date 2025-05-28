@@ -287,7 +287,7 @@ class _BlocklistScreenState extends State<BlocklistScreen> {
                         }
                       }
                     },
-                    child: Text(
+                    child: const Text(
                       'Select All',
                       style: TextStyle(
                         color: AppColors.buttonPrimary,
@@ -462,9 +462,9 @@ class _BlocklistScreenState extends State<BlocklistScreen> {
                         ),
                       ),
                       if (quickModeController.selectedApps.isNotEmpty)
-                        Text(
+                        const Text(
                           'Ready to start Quick Mode',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 12,
                           ),

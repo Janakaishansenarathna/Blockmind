@@ -16,6 +16,7 @@ class EmailLoginScreen extends StatelessWidget {
 
     return Scaffold(
       body: Container(
+        height: MediaQuery.of(context).size.height,
         decoration: const BoxDecoration(
           gradient: AppColors.backgroundGradient,
         ),
@@ -42,20 +43,21 @@ class EmailLoginScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  
+
                   // Title
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       'Welcome Back',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  
+
                   // Description
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -64,19 +66,6 @@ class EmailLoginScreen extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: AppColors.textSecondary,
                           ),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-
-                  // App logo
-                  Center(
-                    child: Hero(
-                      tag: 'app_logo',
-                      child: Image.asset(
-                        AppImages.appLogo,
-                        width: 80,
-                        height: 80,
-                      ),
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -132,6 +121,8 @@ class EmailLoginScreen extends StatelessWidget {
 
                   // Login button
                   Obx(() => CustomButton(
+                        width: double.infinity,
+                        height: 56,
                         text: 'Sign In',
                         onPressed: authController.isLoading.value
                             ? null
@@ -150,9 +141,10 @@ class EmailLoginScreen extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
                           'or',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textMuted,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.textMuted,
+                                  ),
                         ),
                       ),
                       const Expanded(child: Divider(color: AppColors.divider)),
@@ -300,7 +292,8 @@ class EmailLoginScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.error, width: 2),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
         ),
       ],

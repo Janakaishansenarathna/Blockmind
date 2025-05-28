@@ -5,7 +5,7 @@ import '../../../data/local/models/schedule_model.dart';
 import '../../../utils/constants/app_colors.dart';
 import '../../../utils/themes/gradient_background.dart';
 import '../controllers/schedule_controller.dart';
-import 'create_schedule_screen.dart';
+import 'edit_shedule_screen.dart';
 
 class ScheduleDetailScreen extends StatefulWidget {
   final ScheduleModel schedule;
@@ -43,6 +43,7 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
         setState(() {
           currentSchedule = updatedSchedule;
         });
+        _loadAppNames(); // Reload app names if schedule changed
       }
     });
   }
@@ -53,16 +54,41 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
         isLoadingApps = true;
       });
 
+      // Wait for apps to be loaded if they're not available yet
+      if (scheduleController.availableApps.isEmpty) {
+        await scheduleController.loadAvailableApps();
+        // Give it a moment to load
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+
       final names = <String>[];
       for (final appId in currentSchedule.blockedApps) {
-        final app = scheduleController.availableApps.firstWhereOrNull(
-          (app) => app.id == appId,
-        );
+        final app = scheduleController.getAppById(appId);
         if (app != null) {
           names.add(app.name);
         } else {
-          // Fallback if app not found
-          names.add('Unknown App');
+          // Try to find by package name as fallback
+          final appByPackage =
+              scheduleController.availableApps.firstWhereOrNull(
+            (app) => app.packageName == appId || app.id == appId,
+          );
+          if (appByPackage != null) {
+            names.add(appByPackage.name);
+          } else {
+            // Extract app name from package if possible
+            String appName = appId;
+            if (appId.contains('.')) {
+              final parts = appId.split('.');
+              appName = parts.last
+                  .replaceAllMapped(
+                    RegExp(r'([A-Z])'),
+                    (match) => ' ${match.group(1)}',
+                  )
+                  .trim();
+              appName = appName.isEmpty ? 'Unknown App' : appName;
+            }
+            names.add(appName);
+          }
         }
       }
 
@@ -77,6 +103,9 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
       if (mounted) {
         setState(() {
           isLoadingApps = false;
+          // Add fallback names
+          appNames =
+              currentSchedule.blockedApps.map((id) => 'App ($id)').toList();
         });
       }
     }
@@ -84,76 +113,695 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return GradientScaffold(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
+    return WillPopScope(
+      onWillPop: () async {
+        // Just go back normally
+        return true;
+      },
+      child: GradientScaffold(
+        child: Scaffold(
           backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Get.back(),
-          ),
-          actions: [
-            // Edit button
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () {
-                scheduleController.prepareForEdit(currentSchedule);
-                Get.to(() => const CreateScheduleScreen())?.then((_) {
-                  // Refresh data when returning from edit
-                  _loadAppNames();
-                });
-              },
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Get.back(),
             ),
-            // Delete button
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () => _confirmDelete(),
-            ),
-          ],
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header section
-              _buildHeaderSection(),
-              const SizedBox(height: 32),
-
-              // Schedule info cards
-              _buildInfoCard(
-                title: 'Schedule Days',
-                icon: Icons.calendar_today,
-                child: _buildDaysInfo(),
+            actions: [
+              // Edit button
+              IconButton(
+                icon: const Icon(Icons.edit),
+                tooltip: 'Edit Schedule',
+                onPressed: () => _editSchedule(),
               ),
-              const SizedBox(height: 16),
-
-              _buildInfoCard(
-                title: 'Time Range',
-                icon: Icons.access_time,
-                child: _buildTimeInfo(),
+              // More options menu
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                color: AppColors.cardBackground,
+                onSelected: (value) {
+                  switch (value) {
+                    case 'duplicate':
+                      _duplicateSchedule();
+                      break;
+                    case 'delete':
+                      _confirmDelete();
+                      break;
+                    case 'share':
+                      _shareSchedule();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'duplicate',
+                    child: Row(
+                      children: [
+                        Icon(Icons.copy, color: AppColors.textPrimary),
+                        SizedBox(width: 12),
+                        Text(
+                          'Duplicate',
+                          style: TextStyle(color: AppColors.textPrimary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'share',
+                    child: Row(
+                      children: [
+                        Icon(Icons.share, color: AppColors.textPrimary),
+                        SizedBox(width: 12),
+                        Text(
+                          'Share',
+                          style: TextStyle(color: AppColors.textPrimary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, color: Colors.red),
+                        SizedBox(width: 12),
+                        Text(
+                          'Delete',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-
-              _buildInfoCard(
-                title: 'Blocked Apps',
-                icon: Icons.apps,
-                child: _buildBlockedAppsInfo(),
-              ),
-              const SizedBox(height: 16),
-
-              // Active toggle
-              _buildActiveToggle(),
-              const SizedBox(height: 24),
-
-              // Additional info
-              _buildAdditionalInfo(),
             ],
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header section
+                _buildHeaderSection(),
+                const SizedBox(height: 32),
+
+                // Quick stats
+                _buildQuickStats(),
+                const SizedBox(height: 24),
+
+                // Schedule info cards
+                _buildInfoCard(
+                  title: 'Schedule Days',
+                  icon: Icons.calendar_today,
+                  child: _buildDaysInfo(),
+                ),
+                const SizedBox(height: 16),
+
+                _buildInfoCard(
+                  title: 'Time Range',
+                  icon: Icons.access_time,
+                  child: _buildTimeInfo(),
+                ),
+                const SizedBox(height: 16),
+
+                _buildInfoCard(
+                  title: 'Blocked Apps',
+                  icon: Icons.apps,
+                  child: _buildBlockedAppsInfo(),
+                ),
+                const SizedBox(height: 16),
+
+                // Active toggle
+                _buildActiveToggle(),
+                const SizedBox(height: 24),
+
+                // Schedule insights
+                _buildScheduleInsights(),
+                const SizedBox(height: 16),
+
+                // Additional info
+                _buildAdditionalInfo(),
+
+                // Action buttons
+                const SizedBox(height: 24),
+                _buildActionButtons(),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  void _editSchedule() async {
+    try {
+      print('Navigating to edit schedule: ${currentSchedule.id}');
+
+      // Navigate to the dedicated edit screen
+      final result = await Get.to(
+        () => EditScheduleScreen(schedule: currentSchedule),
+        transition: Transition.rightToLeft,
+        duration: const Duration(milliseconds: 300),
+        preventDuplicates: true,
+      );
+
+      // Refresh the current schedule data when returning
+      if (result == true || result == null) {
+        await _refreshScheduleData();
+      }
+    } catch (e) {
+      print('Error navigating to edit screen: $e');
+
+      // Show error message
+      Get.snackbar(
+        'Error',
+        'Failed to open edit screen. Please try again.',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    }
+  }
+
+  void _duplicateSchedule() async {
+    try {
+      // Create a copy of the current schedule with a new ID and title
+      final duplicatedSchedule = ScheduleModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: '${currentSchedule.title} (Copy)',
+        icon: currentSchedule.icon,
+        iconColor: currentSchedule.iconColor,
+        days: List<int>.from(currentSchedule.days),
+        startTime: currentSchedule.startTime,
+        endTime: currentSchedule.endTime,
+        blockedApps: List<String>.from(currentSchedule.blockedApps),
+        isActive: false, // Start inactive by default
+        createdAt: DateTime.now(),
+      );
+
+      // Navigate to edit screen for the duplicate
+      final result = await Get.to(
+        () => EditScheduleScreen(schedule: duplicatedSchedule),
+        transition: Transition.rightToLeft,
+        duration: const Duration(milliseconds: 300),
+        preventDuplicates: true,
+      );
+
+      if (result == true) {
+        // Show success message
+        Get.snackbar(
+          'Success',
+          'Schedule duplicated successfully',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: AppColors.success,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
+      }
+    } catch (e) {
+      print('Error duplicating schedule: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to duplicate schedule. Please try again.',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    }
+  }
+
+  void _shareSchedule() {
+    final scheduleText = '''
+📅 Schedule: ${currentSchedule.title}
+
+🗓️ Days: ${scheduleController.formatDays(currentSchedule.days)}
+⏰ Time: ${scheduleController.formatTimeOfDay(currentSchedule.startTime)} - ${scheduleController.formatTimeOfDay(currentSchedule.endTime)}
+📱 Blocked Apps: ${currentSchedule.blockedApps.length} apps
+${currentSchedule.isActive ? '✅ Active' : '⏸️ Inactive'}
+
+${appNames.isNotEmpty ? 'Apps: ${appNames.join(', ')}' : ''}
+''';
+
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Share Schedule',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.containerBackground,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                scheduleText,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Get.back();
+                      // Implement copy to clipboard
+                      Get.snackbar(
+                        'Copied',
+                        'Schedule details copied to clipboard',
+                        snackPosition: SnackPosition.TOP,
+                      );
+                    },
+                    icon: const Icon(Icons.copy),
+                    label: const Text('Copy'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Get.back();
+                      // Implement share functionality
+                      Get.snackbar(
+                        'Share',
+                        'Opening share dialog...',
+                        snackPosition: SnackPosition.TOP,
+                      );
+                    },
+                    icon: const Icon(Icons.share),
+                    label: const Text('Share'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.buttonPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _refreshScheduleData() async {
+    try {
+      // Reload schedules to get updated data
+      await scheduleController.loadSchedules();
+
+      // Find the updated schedule
+      final updatedSchedule = scheduleController.schedules.firstWhereOrNull(
+        (s) => s.id == currentSchedule.id,
+      );
+
+      if (updatedSchedule != null && mounted) {
+        setState(() {
+          currentSchedule = updatedSchedule;
+        });
+        await _loadAppNames();
+      }
+    } catch (e) {
+      print('Error refreshing schedule data: $e');
+    }
+  }
+
+  Widget _buildQuickStats() {
+    final isCurrentlyActive = _isScheduleActiveNow();
+    final nextTrigger = _getNextTriggerTime();
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            title: 'Status',
+            value: currentSchedule.isActive ? 'Active' : 'Inactive',
+            icon: currentSchedule.isActive
+                ? Icons.play_circle
+                : Icons.pause_circle,
+            color: currentSchedule.isActive
+                ? AppColors.success
+                : AppColors.textMuted,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            title: 'Currently',
+            value: isCurrentlyActive ? 'Running' : 'Idle',
+            icon: isCurrentlyActive ? Icons.block : Icons.check_circle,
+            color: isCurrentlyActive ? Colors.orange : AppColors.success,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            title: 'Apps',
+            value: '${currentSchedule.blockedApps.length}',
+            icon: Icons.apps,
+            color: AppColors.buttonPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleInsights() {
+    final nextTrigger = _getNextTriggerTime();
+    final totalDuration = _getTotalDuration();
+    final conflictingSchedules = _getConflictingSchedules();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.containerBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.borderColor.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.insights,
+                color: AppColors.buttonPrimary,
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Schedule Insights',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (nextTrigger != null) ...[
+            _buildInsightRow(
+              Icons.schedule,
+              'Next Activation',
+              nextTrigger,
+              AppColors.buttonPrimary,
+            ),
+            const SizedBox(height: 12),
+          ],
+          _buildInsightRow(
+            Icons.timer,
+            'Daily Duration',
+            totalDuration,
+            AppColors.success,
+          ),
+          if (conflictingSchedules.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildInsightRow(
+              Icons.warning,
+              'Conflicts',
+              '${conflictingSchedules.length} schedule(s)',
+              Colors.orange,
+            ),
+          ],
+          const SizedBox(height: 12),
+          _buildInsightRow(
+            Icons.block,
+            'Block Frequency',
+            '${currentSchedule.days.length} days/week',
+            AppColors.textSecondary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsightRow(
+      IconData icon, String label, String value, Color color) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 16),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _isScheduleActiveNow() {
+    if (!currentSchedule.isActive) return false;
+
+    final now = DateTime.now();
+    final currentDay = now.weekday;
+    final currentTime = TimeOfDay.now();
+
+    if (currentSchedule.days.contains(currentDay)) {
+      return _isTimeInRange(
+          currentTime, currentSchedule.startTime, currentSchedule.endTime);
+    }
+
+    return false;
+  }
+
+  bool _isTimeInRange(TimeOfDay current, TimeOfDay start, TimeOfDay end) {
+    final currentMinutes = current.hour * 60 + current.minute;
+    final startMinutes = start.hour * 60 + start.minute;
+    final endMinutes = end.hour * 60 + end.minute;
+
+    if (startMinutes > endMinutes) {
+      return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+    }
+
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  }
+
+  String? _getNextTriggerTime() {
+    if (!currentSchedule.isActive) return null;
+
+    final now = DateTime.now();
+    final currentDay = now.weekday;
+    final currentTime = TimeOfDay.now();
+
+    // Check if schedule is active today
+    if (currentSchedule.days.contains(currentDay)) {
+      final startMinutes = currentSchedule.startTime.hour * 60 +
+          currentSchedule.startTime.minute;
+      final currentMinutes = currentTime.hour * 60 + currentTime.minute;
+
+      if (currentMinutes < startMinutes) {
+        return 'Today at ${scheduleController.formatTimeOfDay(currentSchedule.startTime)}';
+      }
+    }
+
+    // Find next day
+    for (int i = 1; i <= 7; i++) {
+      final nextDay = ((currentDay + i - 1) % 7) + 1;
+      if (currentSchedule.days.contains(nextDay)) {
+        final dayNames = [
+          '',
+          'Monday',
+          'Tuesday',
+          'Wednesday',
+          'Thursday',
+          'Friday',
+          'Saturday',
+          'Sunday'
+        ];
+        return '${dayNames[nextDay]} at ${scheduleController.formatTimeOfDay(currentSchedule.startTime)}';
+      }
+    }
+
+    return null;
+  }
+
+  String _getTotalDuration() {
+    final startMinutes =
+        currentSchedule.startTime.hour * 60 + currentSchedule.startTime.minute;
+    final endMinutes =
+        currentSchedule.endTime.hour * 60 + currentSchedule.endTime.minute;
+
+    int duration = endMinutes - startMinutes;
+    if (duration < 0) duration += 24 * 60;
+
+    final hours = duration ~/ 60;
+    final minutes = duration % 60;
+
+    if (hours == 0) return '${minutes}m';
+    if (minutes == 0) return '${hours}h';
+    return '${hours}h ${minutes}m';
+  }
+
+  List<ScheduleModel> _getConflictingSchedules() {
+    return scheduleController.schedules.where((schedule) {
+      if (schedule.id == currentSchedule.id || !schedule.isActive) return false;
+
+      // Check for day overlap
+      final hasCommonDays =
+          schedule.days.any((day) => currentSchedule.days.contains(day));
+      if (!hasCommonDays) return false;
+
+      // Check for time overlap
+      final start1 = currentSchedule.startTime.hour * 60 +
+          currentSchedule.startTime.minute;
+      final end1 =
+          currentSchedule.endTime.hour * 60 + currentSchedule.endTime.minute;
+      final start2 = schedule.startTime.hour * 60 + schedule.startTime.minute;
+      final end2 = schedule.endTime.hour * 60 + schedule.endTime.minute;
+
+      return (start1 < end2 && end1 > start2);
+    }).toList();
+  }
+
+  Widget _buildActionButtons() {
+    return Column(
+      children: [
+        // Edit Button
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _editSchedule,
+            icon: const Icon(Icons.edit),
+            label: const Text(
+              'Edit Schedule',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.buttonPrimary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Secondary action buttons row
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _duplicateSchedule,
+                icon: const Icon(Icons.copy),
+                label: const Text(
+                  'Duplicate',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.buttonPrimary,
+                  side: const BorderSide(color: AppColors.buttonPrimary),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _confirmDelete,
+                icon: const Icon(Icons.delete),
+                label: const Text(
+                  'Delete',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -388,8 +1036,11 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
   Widget _buildBlockedAppsInfo() {
     if (isLoadingApps) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.buttonPrimary,
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: CircularProgressIndicator(
+            color: AppColors.buttonPrimary,
+          ),
         ),
       );
     }
@@ -487,8 +1138,8 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
           ),
           Switch(
             value: currentSchedule.isActive,
-            onChanged: (value) {
-              scheduleController.toggleScheduleActive(
+            onChanged: (value) async {
+              await scheduleController.toggleScheduleActive(
                 currentSchedule.id,
                 value,
               );
@@ -555,6 +1206,11 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
               _formatDate(currentSchedule.lastTriggered!),
             ),
           ],
+          const SizedBox(height: 8),
+          _buildInfoRow(
+            'Schedule ID',
+            currentSchedule.id,
+          ),
         ],
       ),
     );
@@ -571,11 +1227,15 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
             fontSize: 13,
           ),
         ),
-        Text(
-          value,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 13,
+        Flexible(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+            ),
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
           ),
         ),
       ],
@@ -602,13 +1262,40 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.cardBackground,
-        title: const Text(
-          'Delete Schedule',
-          style: TextStyle(color: AppColors.textPrimary),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.delete_forever,
+                color: Colors.red,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Delete Schedule',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         content: Text(
           'Are you sure you want to delete "${currentSchedule.title}"? This action cannot be undone.',
-          style: const TextStyle(color: AppColors.textSecondary),
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+          ),
         ),
         actions: [
           TextButton(
@@ -620,20 +1307,18 @@ class _ScheduleDetailScreenState extends State<ScheduleDetailScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(context); // Close dialog
               await scheduleController.deleteSchedule(currentSchedule.id);
-              // Navigate back after deletion
-              if (mounted) {
-                Get.back();
-              }
+              // The controller will handle navigation
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.white),
-            ),
+            child: const Text('Delete'),
           ),
         ],
       ),

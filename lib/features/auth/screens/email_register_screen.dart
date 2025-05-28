@@ -42,20 +42,21 @@ class EmailRegisterScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  
+
                   // Title
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       'Create Account',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  
+
                   // Description
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -64,19 +65,6 @@ class EmailRegisterScreen extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: AppColors.textSecondary,
                           ),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-
-                  // App logo
-                  Center(
-                    child: Hero(
-                      tag: 'app_logo',
-                      child: Image.asset(
-                        AppImages.appLogo,
-                        width: 80,
-                        height: 80,
-                      ),
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -129,7 +117,8 @@ class EmailRegisterScreen extends StatelessWidget {
                         label: 'Confirm Password',
                         hint: 'Confirm your password',
                         icon: Iconsax.lock,
-                        obscureText: authController.obscureConfirmPassword.value,
+                        obscureText:
+                            authController.obscureConfirmPassword.value,
                         validator: authController.validateConfirmPassword,
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -138,7 +127,8 @@ class EmailRegisterScreen extends StatelessWidget {
                                 : Iconsax.eye,
                             color: AppColors.iconSecondary,
                           ),
-                          onPressed: authController.toggleConfirmPasswordVisibility,
+                          onPressed:
+                              authController.toggleConfirmPasswordVisibility,
                         ),
                       )),
                   const SizedBox(height: 24),
@@ -151,7 +141,8 @@ class EmailRegisterScreen extends StatelessWidget {
                         Obx(() => Checkbox(
                               value: authController.acceptedTerms.value,
                               onChanged: (value) {
-                                authController.acceptedTerms.value = value ?? false;
+                                authController.acceptedTerms.value =
+                                    value ?? false;
                               },
                               activeColor: AppColors.accent,
                               checkColor: Colors.white,
@@ -166,7 +157,10 @@ class EmailRegisterScreen extends StatelessWidget {
                         Expanded(
                           child: RichText(
                             text: TextSpan(
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
                                     color: AppColors.textMuted,
                                   ),
                               children: const [
@@ -197,11 +191,14 @@ class EmailRegisterScreen extends StatelessWidget {
 
                   // Register button
                   Obx(() => CustomButton(
+                        width: double.infinity,
+                        height: 56,
                         text: 'Create Account',
                         onPressed: authController.isLoading.value
                             ? null
                             : () async {
-                                await authController.registerWithEmailPassword();
+                                await authController
+                                    .registerWithEmailPassword();
                               },
                         isLoading: authController.isLoading.value,
                       )),
@@ -215,9 +212,10 @@ class EmailRegisterScreen extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
                           'or',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textMuted,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.textMuted,
+                                  ),
                         ),
                       ),
                       const Expanded(child: Divider(color: AppColors.divider)),
@@ -365,7 +363,8 @@ class EmailRegisterScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.error, width: 2),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
         ),
       ],

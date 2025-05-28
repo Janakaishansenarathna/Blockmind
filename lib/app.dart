@@ -10,6 +10,7 @@ import 'data/services/app_blocker_manager.dart';
 import 'data/services/foreground_service.dart';
 import 'data/services/permissions_service.dart';
 import 'features/auth/controllers/auth_controller.dart';
+import 'features/schedules/controllers/schedule_controller.dart'; // Add this import
 import 'routes/routes.dart';
 import 'firebase_options.dart';
 import 'utils/constants/app_constants.dart';
@@ -28,6 +29,15 @@ class App extends StatelessWidget {
       initialRoute: AppRoutes.splash,
       getPages: AppRoutes.routes,
       initialBinding: AppBindings(),
+      // Add these properties for better error handling
+      enableLog: true,
+      logWriterCallback: (String text, {bool isError = false}) {
+        if (isError) {
+          debugPrint('GetX Error: $text');
+        } else {
+          debugPrint('GetX Log: $text');
+        }
+      },
     );
   }
 }
@@ -36,11 +46,14 @@ class App extends StatelessWidget {
 class AppBindings extends Bindings {
   @override
   void dependencies() {
-    // Register controllers
+    // Register core controllers first
     Get.put(AuthController(), permanent: true);
     Get.put(BlockerController(), permanent: true);
-    // Profile controller will be lazily loaded when needed
-    // Other controllers will be added as needed
+
+    // Register schedule controller - THIS WAS MISSING!
+    Get.put(ScheduleController(), permanent: true);
+
+    debugPrint('All controllers registered successfully');
   }
 }
 
@@ -62,99 +75,130 @@ class BlockerController extends GetxController {
     _initForegroundTask();
   }
 
+  @override
+  void onClose() {
+    // Clean up resources
+    _foregroundService.stopService();
+    super.onClose();
+  }
+
   Future<void> _initForegroundTask() async {
-    // Initialize foreground task settings
-    FlutterForegroundTask.init(
-      androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'app_blocker_notification_channel',
-        channelName: 'App Blocker Notification',
-        channelDescription:
-            'This notification appears when the app blocker is running.',
-        channelImportance: NotificationChannelImportance.HIGH,
-        priority: NotificationPriority.HIGH,
-        iconData: const NotificationIconData(
-          resType: ResourceType.mipmap,
-          resPrefix: ResourcePrefix.ic,
-          name: 'launcher',
-        ),
-        buttons: [
-          const NotificationButton(
-            id: 'stopButton',
-            text: 'Stop',
+    try {
+      // Initialize foreground task settings
+      FlutterForegroundTask.init(
+        androidNotificationOptions: AndroidNotificationOptions(
+          channelId: 'app_blocker_notification_channel',
+          channelName: 'App Blocker Notification',
+          channelDescription:
+              'This notification appears when the app blocker is running.',
+          channelImportance: NotificationChannelImportance.HIGH,
+          priority: NotificationPriority.HIGH,
+          iconData: const NotificationIconData(
+            resType: ResourceType.mipmap,
+            resPrefix: ResourcePrefix.ic,
+            name: 'launcher',
           ),
-        ],
-      ),
-      iosNotificationOptions: const IOSNotificationOptions(
-        showNotification: true,
-        playSound: false,
-      ),
-      foregroundTaskOptions: const ForegroundTaskOptions(
-        interval: 1000,
-        isOnceEvent: false,
-        autoRunOnBoot: true,
-        allowWakeLock: true,
-        allowWifiLock: true,
-      ),
-    );
+          buttons: [
+            const NotificationButton(
+              id: 'stopButton',
+              text: 'Stop',
+            ),
+          ],
+        ),
+        iosNotificationOptions: const IOSNotificationOptions(
+          showNotification: true,
+          playSound: false,
+        ),
+        foregroundTaskOptions: const ForegroundTaskOptions(
+          interval: 1000,
+          isOnceEvent: false,
+          autoRunOnBoot: true,
+          allowWakeLock: true,
+          allowWifiLock: true,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error initializing foreground task: $e');
+    }
   }
 
   Future<void> _initBlocker() async {
-    await _blockerManager.initialize();
+    try {
+      await _blockerManager.initialize();
 
-    // Update observable variables
-    isQuickModeActive.value = _blockerManager.isQuickBlockActive();
-    blockedAppsCount.value = (await _blockerManager.getBlockedApps()).length;
-    unblockCount.value = await _blockerManager.getUnblockCountToday();
+      // Update observable variables
+      isQuickModeActive.value = _blockerManager.isQuickBlockActive();
+      blockedAppsCount.value = (await _blockerManager.getBlockedApps()).length;
+      unblockCount.value = await _blockerManager.getUnblockCountToday();
 
-    // Format saved time
-    final savedDuration = await _blockerManager.getSavedTimeToday();
-    savedTime.value = _formatDuration(savedDuration);
+      // Format saved time
+      final savedDuration = await _blockerManager.getSavedTimeToday();
+      savedTime.value = _formatDuration(savedDuration);
 
-    // Start background service if quick mode is active
-    if (isQuickModeActive.value) {
-      await _foregroundService.startService();
+      // Start background service if quick mode is active
+      if (isQuickModeActive.value) {
+        await _foregroundService.startService();
+      }
+
+      debugPrint('Blocker initialized successfully');
+    } catch (e) {
+      debugPrint('Error initializing blocker: $e');
     }
   }
 
   Future<bool> checkPermissions() async {
-    return await _permissionsService.checkAllPermissions();
+    try {
+      return await _permissionsService.checkAllPermissions();
+    } catch (e) {
+      debugPrint('Error checking permissions: $e');
+      return false;
+    }
   }
 
   Future<bool> requestPermissions() async {
-    return await _permissionsService.requestAllRequiredPermissions();
+    try {
+      return await _permissionsService.requestAllRequiredPermissions();
+    } catch (e) {
+      debugPrint('Error requesting permissions: $e');
+      return false;
+    }
   }
 
   // Fixed the type error by converting List<dynamic> to List<AppModel>
   Future<void> toggleQuickMode(List<dynamic> apps, Duration duration) async {
-    if (isQuickModeActive.value) {
-      await _blockerManager.stopQuickBlock();
-      await _foregroundService.stopService();
-      isQuickModeActive.value = false;
-    } else {
-      // Convert List<dynamic> to List<AppModel>
-      final List<AppModel> appModels = apps.map((app) {
-        if (app is AppModel) {
-          return app;
-        } else if (app is Map<String, dynamic>) {
-          // Convert map to AppModel if needed
-          return AppModel(
-            id: app['id'] as String,
-            name: app['name'] as String,
-            packageName: app['packageName'] as String,
-            icon: IconData(
-              app['iconCode'] as int,
-              fontFamily: 'MaterialIcons',
-            ),
-            iconColor: Color(app['iconColor'] as int),
-          );
-        } else {
-          throw ArgumentError('Cannot convert to AppModel: $app');
-        }
-      }).toList();
+    try {
+      if (isQuickModeActive.value) {
+        await _blockerManager.stopQuickBlock();
+        await _foregroundService.stopService();
+        isQuickModeActive.value = false;
+      } else {
+        // Convert List<dynamic> to List<AppModel>
+        final List<AppModel> appModels = apps.map((app) {
+          if (app is AppModel) {
+            return app;
+          } else if (app is Map<String, dynamic>) {
+            // Convert map to AppModel if needed
+            return AppModel(
+              id: app['id'] as String,
+              name: app['name'] as String,
+              packageName: app['packageName'] as String,
+              icon: IconData(
+                app['iconCode'] as int,
+                fontFamily: 'MaterialIcons',
+              ),
+              iconColor: Color(app['iconColor'] as int),
+            );
+          } else {
+            throw ArgumentError('Cannot convert to AppModel: $app');
+          }
+        }).toList();
 
-      await _blockerManager.startQuickBlock(duration, appModels);
-      await _foregroundService.startService();
-      isQuickModeActive.value = true;
+        await _blockerManager.startQuickBlock(duration, appModels);
+        await _foregroundService.startService();
+        isQuickModeActive.value = true;
+      }
+    } catch (e) {
+      debugPrint('Error toggling quick mode: $e');
     }
   }
 
@@ -167,6 +211,11 @@ class BlockerController extends GetxController {
     } else {
       return '${minutes}m';
     }
+  }
+
+  // Add method to refresh blocker state
+  Future<void> refreshState() async {
+    await _initBlocker();
   }
 }
 
@@ -192,7 +241,7 @@ class AppInitializer {
       );
 
       // Initialize app blocker manager
-      await AppBlockerManager().initialize();
+      // await AppBlockerManager().initialize();
 
       // Initialize other services
       _initServices();
@@ -201,50 +250,94 @@ class AppInitializer {
       debugPrint('App initialization completed successfully');
     } catch (e) {
       debugPrint('Error during app initialization: $e');
+      rethrow; // Re-throw the error so it can be handled by the calling code
     }
   }
 
   static void _initServices() {
-    // Initialize local storage
-    // Initialize notifications
-    // Initialize analytics
-    // Set up method channel for native app blocking functionality
-    _setupMethodChannel();
+    try {
+      // Initialize local storage
+      // Initialize notifications
+      // Initialize analytics
+      // Set up method channel for native app blocking functionality
+      _setupMethodChannel();
+
+      debugPrint('Services initialized successfully');
+    } catch (e) {
+      debugPrint('Error initializing services: $e');
+    }
   }
 
   static void _setupMethodChannel() {
-    const methodChannel =
-        MethodChannel('com.example.socialmediablocker/app_blocker');
+    try {
+      const methodChannel =
+          MethodChannel('com.example.socialmediablocker/app_blocker');
 
-    methodChannel.setMethodCallHandler((call) async {
-      switch (call.method) {
-        case 'onAppBlocked':
-          final packageName = call.arguments as String;
-          debugPrint('App blocked: $packageName');
-          // Notify controller if needed
-          return true;
+      methodChannel.setMethodCallHandler((call) async {
+        try {
+          switch (call.method) {
+            case 'onAppBlocked':
+              final packageName = call.arguments as String;
+              debugPrint('App blocked: $packageName');
 
-        case 'onBlockBypass':
-          final packageName = call.arguments as String;
-          debugPrint('Block bypassed for: $packageName');
-          // Update unblock count
-          return true;
+              // Notify blocker controller if needed
+              try {
+                final blockerController = Get.find<BlockerController>();
+                await blockerController.refreshState();
+              } catch (e) {
+                debugPrint('Error notifying blocker controller: $e');
+              }
 
-        default:
+              return true;
+
+            case 'onBlockBypass':
+              final packageName = call.arguments as String;
+              debugPrint('Block bypassed for: $packageName');
+
+              // Update unblock count
+              try {
+                final blockerController = Get.find<BlockerController>();
+                await blockerController.refreshState();
+              } catch (e) {
+                debugPrint('Error updating unblock count: $e');
+              }
+
+              return true;
+
+            default:
+              throw PlatformException(
+                code: 'UNSUPPORTED_METHOD',
+                message: 'Method ${call.method} not supported',
+              );
+          }
+        } catch (e) {
+          debugPrint('Error handling method call: $e');
           throw PlatformException(
-            code: 'UNSUPPORTED_METHOD',
-            message: 'Method ${call.method} not supported',
+            code: 'METHOD_HANDLER_ERROR',
+            message: 'Error handling method call: $e',
           );
-      }
-    });
+        }
+      });
+
+      debugPrint('Method channel setup completed');
+    } catch (e) {
+      debugPrint('Error setting up method channel: $e');
+    }
   }
 }
 
 /// Main app launcher
 Future<void> initializeApp() async {
-  // Ensure Flutter binding is initialized
-  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    // Ensure Flutter binding is initialized
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize app services
-  await AppInitializer.init();
+    // Initialize app services
+    await AppInitializer.init();
+
+    debugPrint('App launcher initialization completed');
+  } catch (e) {
+    debugPrint('Critical error during app initialization: $e');
+    // You might want to show an error screen or retry mechanism here
+  }
 }
