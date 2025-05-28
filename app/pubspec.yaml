@@ -1,0 +1,95 @@
+name: app
+description: "This is social media blocking project"
+
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  #Utility
+  http: ^1.2.1
+  intl: ^0.19.0
+  logger: ^2.1.0
+  lottie: ^3.1.0
+  connectivity_plus: ^5.0.2
+  url_launcher: ^6.2.5
+  flutter_native_splash: ^2.4.0
+  smooth_page_indicator: ^1.1.0
+  shimmer: ^3.0.0
+  image_picker: ^1.1.0
+  cached_network_image: ^3.3.1
+
+  #Icons
+  cupertino_icons: ^1.0.6
+  iconsax: ^0.0.8
+
+  #State Management
+  get: ^4.6.6
+  get_storage: ^2.1.1
+
+  #Product Specific
+  readmore: ^2.2.0
+  carousel_slider: ^5.0.0
+  flutter_rating_bar: ^4.0.1
+  capped_progress_indicator: ^0.0.2
+
+  #Firebase
+  firebase_core: ^2.29.0
+  firebase_auth: ^4.19.1
+  cloud_firestore: ^4.16.1
+  google_sign_in: ^6.3.0
+  firebase_storage: ^11.7.4
+  change_notifier: ^0.28.0
+  provider_screen: ^1.0.1
+  provider: ^6.1.2
+  shared_preferences: ^2.5.3
+  # flutter_facebook_auth: ^7.1.0
+  google_nav_bar: ^5.0.7
+  device_apps: ^2.2.0
+  app_usage: ^4.0.1
+  flutter_local_notifications: ^19.2.0
+  permission_handler: ^12.0.0+1
+  flutter_foreground_task: ^6.1.0 
+ 
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+
+  # To add assets to your application, add an assets section, like this:
+  assets:
+    - assets/images/
+    - assets/icons/
+
+  # fonts:
+  #   - family: Poppins
+  #     fonts:
+  #       - asset: assets\fonts\Poppins-Light.ttf
+  #         weight: 300
+  #       - asset: assets\fonts\Poppins-Regular.ttf
+  #         weight: 400
+  #       - asset: assets\fonts\Poppins-Italic.ttf
+  #         style: italic
+  #       - asset: assets\fonts\Poppins-Medium.ttf
+  #         weight: 500
+  #       - asset: assets\fonts\Poppins-MediumItalic.ttf
+  #         weight: 500
+  #         style: italic
+  #       - asset: assets\fonts\Poppins-SemiBold.ttf
+  #         weight: 600
+  #       - asset: assets\fonts\Poppins-Bold.ttf
+  #         weight: 800
