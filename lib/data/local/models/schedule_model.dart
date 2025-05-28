@@ -279,7 +279,8 @@ class ScheduleModel {
   }
 
   // Firebase compatibility
-  factory ScheduleModel.fromFirestore(DocumentSnapshot doc) {
+  factory ScheduleModel.fromFirestore(
+      DocumentSnapshot doc, Map<String, dynamic> data) {
     final data = doc.data() as Map<String, dynamic>;
     return ScheduleModel(
       id: doc.id,

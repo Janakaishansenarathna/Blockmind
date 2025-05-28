@@ -1,19 +1,45 @@
-// features/schedule/screens/create_schedule_screen.dart
+// features/schedule/screens/edit_schedule_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../data/local/models/schedule_model.dart';
 import '../../../utils/constants/app_colors.dart';
 import '../../../utils/themes/gradient_background.dart';
 import '../controllers/schedule_controller.dart';
 
-class CreateScheduleScreen extends StatefulWidget {
-  const CreateScheduleScreen({super.key});
+class EditScheduleScreen extends StatefulWidget {
+  final ScheduleModel schedule;
+
+  const EditScheduleScreen({
+    super.key,
+    required this.schedule,
+  });
 
   @override
-  State<CreateScheduleScreen> createState() => _CreateScheduleScreenState();
+  State<EditScheduleScreen> createState() => _EditScheduleScreenState();
 }
 
-class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
+class _EditScheduleScreenState extends State<EditScheduleScreen> {
   final ScheduleController scheduleController = Get.find<ScheduleController>();
+
+  @override
+  void initState() {
+    super.initState();
+    // Prepare the form for editing with the provided schedule
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeForm();
+    });
+  }
+
+  void _initializeForm() {
+    // Reset form first to ensure clean state
+    scheduleController.resetForm();
+
+    // Prepare form for editing with the schedule data
+    scheduleController.prepareForEdit(widget.schedule);
+
+    print('Edit mode initialized: ${scheduleController.isEditMode.value}');
+    print('Editing schedule ID: ${scheduleController.editingScheduleId.value}');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,15 +54,13 @@ class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            title: Obx(() => Text(
-                  scheduleController.isEditMode.value
-                      ? 'Edit Schedule'
-                      : 'Create Schedule',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )),
+            title: const Text(
+              'Edit Schedule',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
               onPressed: _handleBackPressed,
@@ -52,7 +76,7 @@ class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
                       ),
                       SizedBox(height: 16),
                       Text(
-                        'Processing...',
+                        'Updating Schedule...',
                         style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 16,
@@ -66,6 +90,10 @@ class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Header with schedule info
+                      _buildScheduleHeader(),
+                      const SizedBox(height: 32),
+
                       // Icon and Title Section
                       _buildIconAndTitleSection(),
                       const SizedBox(height: 32),
@@ -82,8 +110,8 @@ class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
                       _buildTimeRangeSection(),
                       const SizedBox(height: 32),
 
-                      // Save Button
-                      _buildSaveButton(),
+                      // Action Buttons
+                      _buildActionButtons(),
                       const SizedBox(height: 16),
                     ],
                   ),
@@ -99,8 +127,8 @@ class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
       return;
     }
 
-    // Show confirmation if form has data
-    if (_hasFormData()) {
+    // Show confirmation if form has changes
+    if (_hasFormChanges()) {
       _showExitConfirmationDialog();
     } else {
       scheduleController.resetForm();
@@ -108,14 +136,25 @@ class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
     }
   }
 
-  bool _hasFormData() {
-    return scheduleController.titleController.text.trim().isNotEmpty ||
-        scheduleController.selectedDays.isNotEmpty ||
-        scheduleController.selectedAppIds.isNotEmpty ||
-        scheduleController.startTime.value !=
-            const TimeOfDay(hour: 8, minute: 0) ||
-        scheduleController.endTime.value !=
-            const TimeOfDay(hour: 17, minute: 0);
+  bool _hasFormChanges() {
+    // Compare current form values with original schedule
+    final original = widget.schedule;
+
+    return scheduleController.titleController.text.trim() != original.title ||
+        !_listsEqual(scheduleController.selectedDays, original.days) ||
+        !_listsEqual(scheduleController.selectedAppIds, original.blockedApps) ||
+        scheduleController.startTime.value != original.startTime ||
+        scheduleController.endTime.value != original.endTime ||
+        scheduleController.selectedIcon.value != original.icon ||
+        scheduleController.selectedIconColor.value != original.iconColor;
+  }
+
+  bool _listsEqual<T>(List<T> list1, List<T> list2) {
+    if (list1.length != list2.length) return false;
+    for (int i = 0; i < list1.length; i++) {
+      if (list1[i] != list2[i]) return false;
+    }
+    return true;
   }
 
   void _showExitConfirmationDialog() {
@@ -159,6 +198,59 @@ class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
               foregroundColor: Colors.white,
             ),
             child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.containerBackground.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.borderColor.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: widget.schedule.iconColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.edit,
+              color: widget.schedule.iconColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Editing Schedule',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.schedule.title,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -257,13 +349,26 @@ class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Blocked Apps',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Blocked Apps',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => _showQuickAppSelection(),
+              icon: const Icon(Icons.flash_on, size: 16),
+              label: const Text('Quick Select'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.buttonPrimary,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         GestureDetector(
@@ -559,53 +664,96 @@ class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
     );
   }
 
-  Widget _buildSaveButton() {
-    return Obx(() => SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: scheduleController.isLoading.value ||
-                    scheduleController.isOperationInProgress.value
-                ? null
-                : () async {
-                    // Prevent multiple taps
-                    if (scheduleController.isOperationInProgress.value) return;
+  Widget _buildActionButtons() {
+    return Column(
+      children: [
+        // Update Button
+        Obx(() => SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: scheduleController.isLoading.value ||
+                        scheduleController.isOperationInProgress.value
+                    ? null
+                    : () async {
+                        // Prevent multiple taps
+                        if (scheduleController.isOperationInProgress.value)
+                          return;
 
-                    if (scheduleController.isEditMode.value) {
-                      await scheduleController.updateSchedule();
+                        final success =
+                            await scheduleController.updateSchedule();
+                        if (success) {
+                          // Navigation is handled by the controller
+                        }
+                      },
+                icon: scheduleController.isLoading.value ||
+                        scheduleController.isOperationInProgress.value
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(
+                  scheduleController.isLoading.value ||
+                          scheduleController.isOperationInProgress.value
+                      ? 'Updating...'
+                      : 'Update Schedule',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.buttonPrimary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  disabledBackgroundColor:
+                      AppColors.buttonPrimary.withOpacity(0.5),
+                ),
+              ),
+            )),
+        const SizedBox(height: 12),
+
+        // Cancel Button
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: scheduleController.isOperationInProgress.value
+                ? null
+                : () {
+                    if (_hasFormChanges()) {
+                      _showExitConfirmationDialog();
                     } else {
-                      await scheduleController.createSchedule();
+                      scheduleController.resetForm();
+                      Get.back();
                     }
                   },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.buttonPrimary,
+            icon: const Icon(Icons.cancel),
+            label: const Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              side: BorderSide(color: AppColors.borderColor.withOpacity(0.5)),
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              disabledBackgroundColor: AppColors.buttonPrimary.withOpacity(0.5),
             ),
-            child: scheduleController.isLoading.value ||
-                    scheduleController.isOperationInProgress.value
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : Text(
-                    scheduleController.isEditMode.value
-                        ? 'Update Schedule'
-                        : 'Create Schedule',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
           ),
-        ));
+        ),
+      ],
+    );
   }
 
   Future<void> _selectTime(bool isStartTime) async {
@@ -649,7 +797,7 @@ class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
       {'icon': Icons.movie, 'color': Colors.red, 'name': 'Movie'},
       {'icon': Icons.restaurant, 'color': Colors.amber, 'name': 'Dining'},
       {'icon': Icons.sports_esports, 'color': Colors.indigo, 'name': 'Gaming'},
-      {'icon': Icons.sports_esports, 'color': Colors.indigo, 'name': 'Gaming'},
+      {'icon': Icons.music_note, 'color': Colors.teal, 'name': 'Music'},
     ];
 
     showDialog(
@@ -777,6 +925,26 @@ class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Action buttons row
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: scheduleController.clearAllSelectedApps,
+                      child: const Text('Clear All'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: scheduleController.selectAllAvailableApps,
+                      child: const Text('Select All'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
               // Selected count
               Obx(() => Text(
                     '${scheduleController.selectedAppIds.length} apps selected',
@@ -860,6 +1028,95 @@ class _CreateScheduleScreenState extends State<CreateScheduleScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showQuickAppSelection() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.cardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Quick App Selection',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Category buttons
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _buildCategoryButton('Social', Icons.people),
+                _buildCategoryButton('Entertainment', Icons.movie),
+                _buildCategoryButton('Communication', Icons.chat),
+                _buildCategoryButton('Gaming', Icons.sports_esports),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Sync from Quick Mode button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  scheduleController.syncWithQuickModeSelection();
+                },
+                icon: const Icon(Icons.sync),
+                label: const Text('Sync from Quick Mode'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.buttonPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryButton(String category, IconData icon) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(context);
+        scheduleController.selectAppsByCategory(category);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.buttonPrimary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.buttonPrimary.withOpacity(0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppColors.buttonPrimary, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              category,
+              style: const TextStyle(
+                color: AppColors.buttonPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

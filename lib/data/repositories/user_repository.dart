@@ -21,7 +21,7 @@ class UserRepository {
           await _firestore.collection(_userCollection).doc(userId).get();
 
       if (doc.exists) {
-        return UserModel.fromFirestore(doc);
+        return UserModel.fromFirestore(doc, userId as Map<String, dynamic>);
       }
 
       return null;

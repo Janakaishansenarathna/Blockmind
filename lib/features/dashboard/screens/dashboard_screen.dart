@@ -1,12 +1,11 @@
 // presentation/screens/home/home_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
-import '../../../data/services/database_initialization_service.dart';
 import '../../../utils/constants/app_colors.dart';
 import '../../../utils/themes/gradient_background.dart';
 
 import '../controllers/dashboard_controller.dart';
+
 import '../controllers/quick_mood_controller.dart';
 import '../widgets/active_blocks_list.dart';
 import '../widgets/time_selection_screen.dart';
@@ -20,8 +19,6 @@ class HomeScreen extends StatelessWidget {
     final HomeController homeController = Get.put(HomeController());
     final QuickModeController quickModeController =
         Get.put(QuickModeController());
-    final DatabaseInitializationService dbService =
-        Get.put(DatabaseInitializationService());
 
     // Set available apps in quick mode controller when home controller loads apps
     ever(homeController.allApps, (apps) {
@@ -31,14 +28,19 @@ class HomeScreen extends StatelessWidget {
     return GradientScaffold(
       child: SafeArea(
         child: Obx(() {
-          // Show initialization screen if database is not ready
-          if (!dbService.isInitialized.value) {
-            return _buildInitializationScreen(dbService);
+          // Show initialization screen if not ready
+          if (!homeController.isInitialized.value) {
+            return _buildInitializationScreen(homeController);
           }
 
           // Show main content when ready
           return RefreshIndicator(
-            onRefresh: () => homeController.refreshData(),
+            onRefresh: () async {
+              await Future.wait([
+                homeController.refreshData(),
+                quickModeController.refreshQuickModeData(),
+              ]);
+            },
             color: AppColors.buttonPrimary,
             backgroundColor: AppColors.containerBackground,
             child: SingleChildScrollView(
@@ -71,7 +73,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInitializationScreen(DatabaseInitializationService dbService) {
+  Widget _buildInitializationScreen(HomeController homeController) {
     return Obx(() => Center(
           child: Container(
             padding: const EdgeInsets.all(24),
@@ -83,7 +85,7 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (dbService.isInitializing.value)
+                if (homeController.isInitializing.value)
                   const CircularProgressIndicator(
                     color: AppColors.buttonPrimary,
                   )
@@ -95,7 +97,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                 const SizedBox(height: 16),
                 Text(
-                  dbService.isInitializing.value
+                  homeController.isInitializing.value
                       ? 'Initializing...'
                       : 'Initialization Failed',
                   style: const TextStyle(
@@ -106,28 +108,21 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  dbService.initializationStatus.value,
+                  homeController.isInitializing.value
+                      ? 'Setting up your focus environment...'
+                      : homeController.errorMessage.value.isNotEmpty
+                          ? homeController.errorMessage.value
+                          : 'Please try again',
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 14,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                if (dbService.errorMessage.value.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    dbService.errorMessage.value,
-                    style: const TextStyle(
-                      color: AppColors.error,
-                      fontSize: 12,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-                if (!dbService.isInitializing.value) ...[
+                if (!homeController.isInitializing.value) ...[
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () => dbService.initializeDatabase(),
+                    onPressed: () => homeController.refreshData(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.buttonPrimary,
                       foregroundColor: Colors.white,
@@ -146,7 +141,7 @@ class HomeScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Hello, ${homeController.userName.value}!',
+              'Hello, ${homeController.currentLoggedUsername}!',
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 24,
@@ -219,13 +214,80 @@ class HomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Quick Mode',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Quick Mode',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(
+                  Icons.more_vert,
+                  color: AppColors.iconSecondary,
+                ),
+                onSelected: (value) =>
+                    _handleQuickModeAction(value, quickModeController),
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'reset',
+                    child: Row(
+                      children: [
+                        Icon(Icons.refresh, size: 18, color: Colors.orange),
+                        SizedBox(width: 12),
+                        Text('Reset Quick Mode',
+                            style: TextStyle(color: Colors.orange)),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'presets',
+                    child: Row(
+                      children: [
+                        Icon(Icons.bookmark, size: 18),
+                        SizedBox(width: 12),
+                        Text('Quick Presets'),
+                      ],
+                    ),
+                  ),
+                  if (quickModeController.isQuickModeActive.value) ...[
+                    const PopupMenuItem(
+                      value: 'extend',
+                      child: Row(
+                        children: [
+                          Icon(Icons.add_circle_outline, size: 18),
+                          SizedBox(width: 12),
+                          Text('Extend Time'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: quickModeController.isPaused.value
+                          ? 'resume'
+                          : 'pause',
+                      child: Row(
+                        children: [
+                          Icon(
+                            quickModeController.isPaused.value
+                                ? Icons.play_arrow
+                                : Icons.pause,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(quickModeController.isPaused.value
+                              ? 'Resume'
+                              : 'Pause'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
           ),
           const SizedBox(height: 16),
 
@@ -358,7 +420,9 @@ class HomeScreen extends StatelessWidget {
                     quickModeController,
                     icon: Icons.play_arrow,
                     label: quickModeController.quickModeButtonText,
-                    onPressed: () => quickModeController.startQuickMode(),
+                    onPressed: quickModeController.canStartQuickMode
+                        ? () => quickModeController.startQuickMode()
+                        : null,
                     color: AppColors.buttonPrimary,
                   )),
             ),
@@ -387,9 +451,18 @@ class HomeScreen extends StatelessWidget {
         _buildQuickActionButton(
           quickModeController,
           icon: Icons.stop,
-          label: 'Stop Blocking',
-          onPressed: () => quickModeController.stopQuickMode(),
-          color: AppColors.error,
+          label:
+              quickModeController.isPaused.value ? 'Resume' : 'Stop Blocking',
+          onPressed: () {
+            if (quickModeController.isPaused.value) {
+              quickModeController.resumeQuickMode();
+            } else {
+              _showStopConfirmation(quickModeController);
+            }
+          },
+          color: quickModeController.isPaused.value
+              ? AppColors.buttonPrimary
+              : AppColors.error,
         ),
         const SizedBox(height: 16),
 
@@ -398,15 +471,23 @@ class HomeScreen extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.buttonPrimary.withOpacity(0.1),
+            color: quickModeController.isPaused.value
+                ? Colors.orange.withOpacity(0.1)
+                : AppColors.buttonPrimary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.buttonPrimary.withOpacity(0.2)),
+            border: Border.all(
+              color: quickModeController.isPaused.value
+                  ? Colors.orange.withOpacity(0.2)
+                  : AppColors.buttonPrimary.withOpacity(0.2),
+            ),
           ),
           child: Column(
             children: [
-              const Icon(
-                Icons.shield,
-                color: AppColors.buttonPrimary,
+              Icon(
+                quickModeController.isPaused.value ? Icons.pause : Icons.shield,
+                color: quickModeController.isPaused.value
+                    ? Colors.orange
+                    : AppColors.buttonPrimary,
                 size: 32,
               ),
               const SizedBox(height: 8),
@@ -423,8 +504,10 @@ class HomeScreen extends StatelessWidget {
                     quickModeController.remainingTimeText.isNotEmpty
                         ? quickModeController.remainingTimeText
                         : 'Active blocking session',
-                    style: const TextStyle(
-                      color: AppColors.buttonPrimary,
+                    style: TextStyle(
+                      color: quickModeController.isPaused.value
+                          ? Colors.orange
+                          : AppColors.buttonPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -441,7 +524,7 @@ class HomeScreen extends StatelessWidget {
     QuickModeController quickModeController, {
     required IconData icon,
     required String label,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
     required Color color,
     Color? textColor,
     Color? borderColor,
@@ -450,7 +533,7 @@ class HomeScreen extends StatelessWidget {
       width: double.infinity,
       height: 48,
       decoration: BoxDecoration(
-        color: color,
+        color: onPressed != null ? color : color.withOpacity(0.5),
         borderRadius: BorderRadius.circular(12),
         border: borderColor != null ? Border.all(color: borderColor) : null,
       ),
@@ -511,10 +594,10 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // Schedule items
+        // Schedule items - Use userSchedules instead of schedules
         Obx(() => SizedBox(
               height: 100,
-              child: homeController.schedules.isEmpty
+              child: homeController.userSchedules.isEmpty
                   ? Center(
                       child: Text(
                         'No schedules yet\nTap + to add one',
@@ -527,9 +610,9 @@ class HomeScreen extends StatelessWidget {
                     )
                   : ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      itemCount: homeController.schedules.length,
+                      itemCount: homeController.userSchedules.length,
                       itemBuilder: (context, index) {
-                        final schedule = homeController.schedules[index];
+                        final schedule = homeController.userSchedules[index];
                         return Container(
                           width: 80,
                           margin: const EdgeInsets.only(right: 16),
@@ -689,6 +772,232 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Action handlers
+  void _handleQuickModeAction(
+      String action, QuickModeController quickModeController) {
+    switch (action) {
+      case 'reset':
+        _showResetQuickModeConfirmation(quickModeController);
+        break;
+      case 'presets':
+        _showQuickPresets(quickModeController);
+        break;
+      case 'extend':
+        _showExtendDialog(quickModeController);
+        break;
+      case 'pause':
+        quickModeController.pauseQuickMode();
+        break;
+      case 'resume':
+        quickModeController.resumeQuickMode();
+        break;
+    }
+  }
+
+  void _showResetQuickModeConfirmation(
+      QuickModeController quickModeController) {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Reset Quick Mode'),
+        content: const Text(
+          'Are you sure you want to reset Quick Mode? This will:\n\n'
+          '• Stop current session if active\n'
+          '• Clear selected apps\n'
+          '• Reset quick mood\n'
+          '• Clear session data\n\n'
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Get.back();
+              await _resetQuickMode(quickModeController);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.orange),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _resetQuickMode(QuickModeController quickModeController) async {
+    try {
+      // Stop current session if active
+      if (quickModeController.isQuickModeActive.value) {
+        await quickModeController.stopQuickMode();
+      }
+
+      // Clear selected apps
+      quickModeController.clearSelectedApps();
+
+      // Reset quick mood
+      await quickModeController.resetQuickMood();
+
+      Get.snackbar(
+        'Quick Mode Reset',
+        'All Quick Mode data has been reset',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Reset Failed',
+        'Failed to reset Quick Mode: $e',
+        backgroundColor: AppColors.error,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+      );
+    }
+  }
+
+  void _showExtendDialog(QuickModeController quickModeController) {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Extend Session'),
+        content: const Text('How many minutes would you like to add?'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              quickModeController.extendQuickMode(15);
+            },
+            child: const Text('+15 min'),
+          ),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              quickModeController.extendQuickMode(30);
+            },
+            child: const Text('+30 min'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStopConfirmation(QuickModeController quickModeController) {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Stop Quick Mode'),
+        content: const Text(
+            'Are you sure you want to stop the current blocking session?'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              quickModeController.stopQuickMode();
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Stop'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showQuickPresets(QuickModeController quickModeController) {
+    Get.bottomSheet(
+      Container(
+        decoration: const BoxDecoration(
+          color: AppColors.containerBackground,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Quick Presets',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ...quickModeController.getQuickModePresets().map(
+                  (preset) => _buildPresetOption(preset, quickModeController),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPresetOption(preset, QuickModeController quickModeController) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Get.back();
+          quickModeController.applyQuickModePreset(preset);
+          Get.snackbar(
+            'Preset Applied',
+            '${preset.name} apps selected',
+            backgroundColor: AppColors.success,
+            colorText: Colors.white,
+            snackPosition: SnackPosition.TOP,
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: preset.color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(preset.icon, color: preset.color, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      preset.name,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      preset.description,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -28,7 +28,7 @@ class UsageStatsService {
   String? _currentUserId;
 
   // Cache for app information
-  Map<String, AppModel> _appCache = {};
+  final Map<String, AppModel> _appCache = {};
   DateTime _lastCacheUpdate = DateTime.now();
 
   // ===== INITIALIZATION =====

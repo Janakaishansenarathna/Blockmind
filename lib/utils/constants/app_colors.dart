@@ -4,7 +4,7 @@ class AppColors {
   // Primary Colors
   static const Color primary = Color(0xFF02172E);
   static const Color secondary = Color(0xFF020E1B);
-  static const Color accent = Color(0xFF6C5CE7); // Added from auth screens
+  static const Color accent = Color(0xFF6C5CE7);
 
   // Background Colors
   static const Color background = Color(0xFF02172E);

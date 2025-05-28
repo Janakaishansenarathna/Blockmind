@@ -14,57 +14,96 @@ class FirebaseAuthService {
   // Register with email and password
   Future<UserModel> registerWithEmailPassword(
       String name, String email, String password) async {
-    return _authRepository.registerWithEmailPassword(name, email, password);
+    try {
+      return await _authRepository.registerWithEmailPassword(
+          name, email, password);
+    } catch (e) {
+      print('FirebaseAuthService - Register error: $e');
+      rethrow;
+    }
   }
 
   // Login with email and password
   Future<UserModel> loginWithEmailPassword(
       String email, String password) async {
-    return _authRepository.loginWithEmailPassword(email, password);
+    try {
+      return await _authRepository.loginWithEmailPassword(email, password);
+    } catch (e) {
+      print('FirebaseAuthService - Login error: $e');
+      rethrow;
+    }
   }
 
   // Sign in with Google
   Future<UserModel> signInWithGoogle() async {
-    return _authRepository.signInWithGoogle();
+    try {
+      return await _authRepository.signInWithGoogle();
+    } catch (e) {
+      print('FirebaseAuthService - Google sign in error: $e');
+      rethrow;
+    }
   }
 
-  // Sign in with Facebook
+  // Sign in with Facebook (commented out as per your code)
   // Future<UserModel> signInWithFacebook() async {
-  //   return _authRepository.signInWithFacebook();
+  //   try {
+  //     return await _authRepository.signInWithFacebook();
+  //   } catch (e) {
+  //     print('FirebaseAuthService - Facebook sign in error: $e');
+  //     rethrow;
+  //   }
   // }
 
   // Reset password
   Future<void> resetPassword(String email) async {
-    return _authRepository.resetPassword(email);
+    try {
+      return await _authRepository.resetPassword(email);
+    } catch (e) {
+      print('FirebaseAuthService - Reset password error: $e');
+      rethrow;
+    }
   }
 
   // Logout
   Future<void> signOut() async {
-    return _authRepository.signOut();
+    try {
+      return await _authRepository.signOut();
+    } catch (e) {
+      print('FirebaseAuthService - Sign out error: $e');
+      rethrow;
+    }
   }
 
   // Get current user model
   Future<UserModel?> getCurrentUser() async {
-    UserModel? user = await _authRepository.getCurrentUserFromLocal();
+    try {
+      UserModel? user = await _authRepository.getCurrentUserFromLocal();
 
-    // If not in local storage or auth state changed, try Firestore
-    if (user == null || user.id != currentUser?.uid) {
-      user = await _authRepository.getCurrentUserFromFirestore();
+      // If not in local storage or auth state changed, try Firestore
+      if (user == null || user.id != currentUser?.uid) {
+        user = await _authRepository.getCurrentUserFromFirestore();
 
-      // If found in Firestore, save to local storage
-      if (user != null) {
-        // Use a public method from the repository to save user to local storage
-        // instead of directly accessing the private _userDao property
-        await _authRepository.saveUserToLocal(user);
+        // If found in Firestore, save to local storage
+        if (user != null) {
+          await _authRepository.saveUserToLocal(user);
+        }
       }
-    }
 
-    return user;
+      return user;
+    } catch (e) {
+      print('FirebaseAuthService - Get current user error: $e');
+      return null;
+    }
   }
 
   // Check if user is logged in
   Future<bool> isLoggedIn() async {
-    return _authRepository.isLoggedIn();
+    try {
+      return await _authRepository.isLoggedIn();
+    } catch (e) {
+      print('FirebaseAuthService - Check logged in error: $e');
+      return false;
+    }
   }
 
   // Update user profile
@@ -72,12 +111,19 @@ class FirebaseAuthService {
     required UserModel currentUser,
     String? name,
     String? photoUrl,
+    String? phone,
   }) async {
-    return _authRepository.updateUserProfile(
-      currentUser: currentUser,
-      name: name,
-      photoUrl: photoUrl,
-    );
+    try {
+      return await _authRepository.updateUserProfile(
+        currentUser: currentUser,
+        name: name,
+        photoUrl: photoUrl,
+        phone: phone,
+      );
+    } catch (e) {
+      print('FirebaseAuthService - Update profile error: $e');
+      rethrow;
+    }
   }
 
   // Update user premium status
@@ -86,25 +132,84 @@ class FirebaseAuthService {
     required bool isPremium,
     required DateTime? expiryDate,
   }) async {
-    return _authRepository.updatePremiumStatus(
-      currentUser: currentUser,
-      isPremium: isPremium,
-      expiryDate: expiryDate,
-    );
+    try {
+      return await _authRepository.updatePremiumStatus(
+        currentUser: currentUser,
+        isPremium: isPremium,
+        expiryDate: expiryDate,
+      );
+    } catch (e) {
+      print('FirebaseAuthService - Update premium status error: $e');
+      rethrow;
+    }
   }
 
   // Send email verification
   Future<void> sendEmailVerification() async {
-    return _authRepository.sendEmailVerification();
+    try {
+      return await _authRepository.sendEmailVerification();
+    } catch (e) {
+      print('FirebaseAuthService - Send email verification error: $e');
+      rethrow;
+    }
   }
 
   // Check if email is verified
   Future<bool> isEmailVerified() async {
-    return _authRepository.isEmailVerified();
+    try {
+      return await _authRepository.isEmailVerified();
+    } catch (e) {
+      print('FirebaseAuthService - Check email verified error: $e');
+      return false;
+    }
   }
 
   // Get current user for verification screen
   Future<UserModel> getCurrentUserForVerification() async {
-    return _authRepository.getCurrentUserForVerification();
+    try {
+      return await _authRepository.getCurrentUserForVerification();
+    } catch (e) {
+      print(
+          'FirebaseAuthService - Get current user for verification error: $e');
+      rethrow;
+    }
   }
+
+  // Delete user account
+  Future<void> deleteAccount() async {
+    try {
+      return await _authRepository.deleteAccount();
+    } catch (e) {
+      print('FirebaseAuthService - Delete account error: $e');
+      rethrow;
+    }
+  }
+
+  // Refresh user data
+  Future<UserModel?> refreshUserData() async {
+    try {
+      if (currentUser != null) {
+        return await _authRepository.getCurrentUserFromFirestore();
+      }
+      return null;
+    } catch (e) {
+      print('FirebaseAuthService - Refresh user data error: $e');
+      return null;
+    }
+  }
+
+  // Check auth state
+  bool get isAuthenticated => currentUser != null;
+
+  // Get user ID
+  String? get userId => currentUser?.uid;
+
+  // Get user email
+  String? get userEmail => currentUser?.email;
+
+  // Get user display name
+  String? get userDisplayName => currentUser?.displayName;
+
+  // Get user photo URL
+  String? get userPhotoUrl => currentUser?.photoURL;
 }

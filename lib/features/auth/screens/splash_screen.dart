@@ -131,20 +131,7 @@ class _SplashScreenState extends State<SplashScreen>
                   );
                 },
               ),
-              const SizedBox(height: 40),
-              // App name with fade animation
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: const Text(
-                  AppConstants.appName,
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+
               // Tagline with delayed fade animation
               FadeTransition(
                 opacity: CurvedAnimation(

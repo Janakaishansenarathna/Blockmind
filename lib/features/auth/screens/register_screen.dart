@@ -66,9 +66,9 @@ class RegisterScreen extends StatelessWidget {
                   child: Hero(
                     tag: 'app_logo',
                     child: Image.asset(
-                      AppImages.appLogo,
-                      width: 80,
-                      height: 80,
+                      AppImages.register,
+                      width: 200,
+                      height: 200,
                     ),
                   ),
                 ),

@@ -61,14 +61,31 @@ class LoginScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 40),
-                // App logo
+                // App logo with error handling
                 Center(
                   child: Hero(
                     tag: 'app_logo',
                     child: Image.asset(
-                      AppImages.appLogo,
-                      width: 80,
-                      height: 80,
+                      AppImages.login,
+                      width: 180,
+                      height: 180,
+                      // Add error handling
+                      errorBuilder: (context, error, stackTrace) {
+                        print('Error loading image: $error');
+                        return Container(
+                          width: 150,
+                          height: 150,
+                          decoration: BoxDecoration(
+                            color: AppColors.buttonPrimary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(75),
+                          ),
+                          child: const Icon(
+                            Icons.login,
+                            size: 60,
+                            color: AppColors.buttonPrimary,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -92,7 +109,7 @@ class LoginScreen extends StatelessWidget {
                     _buildSocialLoginButton(
                       context: context,
                       label: 'Continue with Google',
-                      icon: 'assets/icons/google.png',
+                      icon: AppImages.googleIcon,
                       onPressed: () async {
                         await authController.loginWithGoogle();
                       },
@@ -104,7 +121,7 @@ class LoginScreen extends StatelessWidget {
                     _buildSocialLoginButton(
                       context: context,
                       label: 'Continue with Facebook',
-                      icon: 'assets/icons/facebook.png',
+                      icon: AppImages.facebookIcon,
                       onPressed: () async {
                         Get.snackbar(
                           'Coming Soon',
@@ -310,6 +327,15 @@ class LoginScreen extends StatelessWidget {
               icon,
               width: 24,
               height: 24,
+              // Add error handling for social icons
+              errorBuilder: (context, error, stackTrace) {
+                print('Error loading social icon: $error');
+                return Icon(
+                  Icons.account_circle,
+                  size: 24,
+                  color: textColor,
+                );
+              },
             ),
             const SizedBox(width: 16),
             Text(

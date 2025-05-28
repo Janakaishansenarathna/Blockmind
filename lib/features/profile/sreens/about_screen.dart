@@ -653,11 +653,11 @@ class AboutScreen extends StatelessWidget {
                 hintStyle: const TextStyle(color: AppColors.textMuted),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.borderColor),
+                  borderSide: const BorderSide(color: AppColors.borderColor),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.buttonPrimary),
+                  borderSide: const BorderSide(color: AppColors.buttonPrimary),
                 ),
               ),
             ),

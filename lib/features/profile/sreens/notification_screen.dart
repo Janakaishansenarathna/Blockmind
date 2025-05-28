@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import '../../../utils/constants/app_colors.dart';
 import '../../../utils/themes/gradient_background.dart';

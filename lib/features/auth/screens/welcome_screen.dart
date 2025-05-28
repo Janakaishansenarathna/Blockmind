@@ -29,8 +29,8 @@ class WelcomeScreen extends StatelessWidget {
                   tag: 'app_logo',
                   child: Image.asset(
                     AppImages.appLogo,
-                    width: 120,
-                    height: 120,
+                    width: 200,
+                    height: 200,
                   ),
                 ),
                 const SizedBox(height: 40),

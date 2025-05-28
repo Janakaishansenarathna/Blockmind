@@ -170,33 +170,12 @@ class AuthController extends GetxController {
       errorMessage.value = '';
       LoadingHelper.show('Creating your account...');
 
-      // Create Firebase user
-      final UserCredential userCredential =
-          await _auth.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
+      // Use Firebase Auth Service
+      UserModel user = await _authService.registerWithEmailPassword(
+        nameController.text.trim(),
+        emailController.text.trim(),
+        passwordController.text.trim(),
       );
-
-      if (userCredential.user == null) {
-        throw Exception('Failed to create user account');
-      }
-
-      // Update display name
-      await userCredential.user!.updateDisplayName(nameController.text.trim());
-
-      // Create user model
-      final user = UserModel.newUser(
-        id: userCredential.user!.uid,
-        name: nameController.text.trim(),
-        email: emailController.text.trim(),
-        photoUrl: userCredential.user!.photoURL,
-      );
-
-      // Save to Firestore
-      await _userRepository.createUser(user);
-
-      // Send email verification
-      await userCredential.user!.sendEmailVerification();
 
       // Update current user
       currentUser.value = user;
@@ -212,7 +191,7 @@ class AuthController extends GetxController {
         snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green,
         colorText: Colors.white,
-        duration: Duration(seconds: 5),
+        duration: const Duration(seconds: 5),
       );
 
       // Navigate to email verification
@@ -245,30 +224,17 @@ class AuthController extends GetxController {
       errorMessage.value = '';
       LoadingHelper.show('Logging in...');
 
-      // Sign in with Firebase
-      final UserCredential userCredential =
-          await _auth.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
+      // Use Firebase Auth Service
+      UserModel user = await _authService.loginWithEmailPassword(
+        emailController.text.trim(),
+        passwordController.text.trim(),
       );
 
-      if (userCredential.user == null) {
-        throw Exception('Login failed');
-      }
-
       // Check email verification
-      if (!userCredential.user!.emailVerified) {
+      if (!_auth.currentUser!.emailVerified) {
         // User exists but email not verified
-        final user = UserModel.newUser(
-          id: userCredential.user!.uid,
-          name: userCredential.user!.displayName ?? 'User',
-          email: userCredential.user!.email ?? '',
-          photoUrl: userCredential.user!.photoURL,
-        );
-
         currentUser.value = user;
         await _saveUserLocally(user);
-
         Get.offAllNamed(AppRoutes.emailVerification);
         return true;
       }
@@ -302,36 +268,13 @@ class AuthController extends GetxController {
       errorMessage.value = '';
       LoadingHelper.show('Logging in with Google...');
 
-      // Sign out from previous sessions
-      await _googleSignIn.signOut();
+      // Use Firebase Auth Service
+      UserModel user = await _authService.signInWithGoogle();
 
-      // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      // Update current user
+      currentUser.value = user;
+      await _saveUserLocally(user);
 
-      if (googleUser == null) {
-        // User cancelled the sign-in flow
-        return false;
-      }
-
-      // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      // Create a new credential
-      final OAuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Sign in to Firebase with the Google credential
-      final UserCredential userCredential =
-          await _auth.signInWithCredential(credential);
-
-      if (userCredential.user == null) {
-        throw Exception('Google sign in failed');
-      }
-
-      // User will be handled by auth state listener
       // Navigate to dashboard
       Get.offAllNamed(AppRoutes.dashboard);
       return true;
@@ -379,9 +322,9 @@ class AuthController extends GetxController {
       errorMessage.value = '';
       LoadingHelper.show('Sending reset email...');
 
-      await _auth.sendPasswordResetEmail(
-        email: forgotPasswordEmailController.text.trim(),
-      );
+      // Use Firebase Auth Service
+      await _authService
+          .resetPassword(forgotPasswordEmailController.text.trim());
 
       Get.snackbar(
         'Email Sent',
@@ -389,7 +332,7 @@ class AuthController extends GetxController {
         snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.green,
         colorText: Colors.white,
-        duration: Duration(seconds: 5),
+        duration: const Duration(seconds: 5),
       );
 
       clearForgotPasswordForm();
@@ -415,19 +358,17 @@ class AuthController extends GetxController {
     try {
       isLoading.value = true;
 
-      User? user = _auth.currentUser;
-      if (user != null && !user.emailVerified) {
-        await user.sendEmailVerification();
+      // Use Firebase Auth Service
+      await _authService.sendEmailVerification();
 
-        Get.snackbar(
-          'Verification Email Sent',
-          'A new verification email has been sent to your email address.',
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-          duration: Duration(seconds: 5),
-        );
-      }
+      Get.snackbar(
+        'Verification Email Sent',
+        'A new verification email has been sent to your email address.',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+      );
     } catch (e) {
       errorMessage.value = _handleAuthError(e);
       Get.snackbar(
@@ -445,16 +386,13 @@ class AuthController extends GetxController {
   // Check email verification status
   Future<bool> checkEmailVerification() async {
     try {
-      User? user = _auth.currentUser;
-      if (user != null) {
-        await user.reload();
-        user = _auth.currentUser; // Get updated user
+      // Use Firebase Auth Service
+      bool isVerified = await _authService.isEmailVerified();
 
-        if (user != null && user.emailVerified) {
-          // Email is verified, navigate to dashboard
-          Get.offAllNamed(AppRoutes.dashboard);
-          return true;
-        }
+      if (isVerified) {
+        // Email is verified, navigate to dashboard
+        Get.offAllNamed(AppRoutes.dashboard);
+        return true;
       }
       return false;
     } catch (e) {
@@ -467,6 +405,7 @@ class AuthController extends GetxController {
   Future<bool> updateUserProfile({
     String? name,
     String? photoUrl,
+    String? phone,
   }) async {
     try {
       if (currentUser.value == null) return false;
@@ -474,25 +413,13 @@ class AuthController extends GetxController {
       isLoading.value = true;
       LoadingHelper.show('Updating profile...');
 
-      // Update Firebase user profile
-      User? firebaseUser = _auth.currentUser;
-      if (firebaseUser != null) {
-        if (name != null) {
-          await firebaseUser.updateDisplayName(name);
-        }
-        if (photoUrl != null) {
-          await firebaseUser.updatePhotoURL(photoUrl);
-        }
-      }
-
-      // Update user model
-      UserModel updatedUser = currentUser.value!.copyWith(
+      // Use Firebase Auth Service
+      UserModel updatedUser = await _authService.updateUserProfile(
+        currentUser: currentUser.value!,
         name: name,
         photoUrl: photoUrl,
+        phone: phone,
       );
-
-      // Update in repository
-      await _userRepository.updateUser(updatedUser);
 
       // Update local user
       currentUser.value = updatedUser;
@@ -529,15 +456,8 @@ class AuthController extends GetxController {
       isLoading.value = true;
       LoadingHelper.show('Signing out...');
 
-      // Sign out from Firebase
-      await _auth.signOut();
-
-      // Sign out from Google
-      try {
-        await _googleSignIn.signOut();
-      } catch (e) {
-        print('Google sign out error: $e');
-      }
+      // Use Firebase Auth Service
+      await _authService.signOut();
 
       // Clear local data
       await _clearUserLocally();

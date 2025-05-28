@@ -296,7 +296,8 @@ class UsageLogModel {
   }
 
   // Firebase compatibility
-  factory UsageLogModel.fromFirestore(DocumentSnapshot doc) {
+  factory UsageLogModel.fromFirestore(
+      DocumentSnapshot doc, Map<String, dynamic> data) {
     final data = doc.data() as Map<String, dynamic>;
 
     List<UsageSessionModel> sessionsList = [];

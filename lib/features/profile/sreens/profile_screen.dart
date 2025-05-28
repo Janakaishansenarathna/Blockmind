@@ -81,8 +81,9 @@ class ProfileScreen extends StatelessWidget {
                                               fit: BoxFit.cover,
                                               loadingBuilder: (context, child,
                                                   loadingProgress) {
-                                                if (loadingProgress == null)
+                                                if (loadingProgress == null) {
                                                   return child;
+                                                }
                                                 return Center(
                                                   child:
                                                       CircularProgressIndicator(
@@ -598,7 +599,7 @@ class ProfileMenuItem extends StatelessWidget {
                 ),
               ),
               if (showChevron)
-                Icon(
+                const Icon(
                   Icons.chevron_right,
                   color: AppColors.iconSecondary,
                   size: 20,
