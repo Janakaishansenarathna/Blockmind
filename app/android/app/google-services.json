@@ -1,0 +1,43 @@
+{
+  "project_info": {
+    "project_number": "854174072039",
+    "project_id": "appblocker-d4e6b",
+    "storage_bucket": "appblocker-d4e6b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:854174072039:android:2f8fab2bb2e298632bb642",
+        "android_client_info": {
+          "package_name": "com.example.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "854174072039-abc123def456ghi789jkl012mno345pqr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.app",
+            "certificate_hash": "abcd1234efgh5678ijkl9012mnop3456qrst7890"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3e3TL2eg2-ZuTdyQxID6BE2EV-yNkTCc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "854174072039-web123abc456def789ghi012jkl345mno.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
