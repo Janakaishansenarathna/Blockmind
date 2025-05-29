@@ -163,7 +163,7 @@ class ProfileController extends GetxController {
       // Priority 1: Try AuthController (most reliable source)
       if (_authController?.currentUser.value != null) {
         user = _authController!.currentUser.value;
-        _log('User loaded from AuthController: ${user?.name}');
+        _log('User loaded from AuthController: ${user!.name}');
       }
       // Priority 2: Try auth service directly (fallback)
       else {

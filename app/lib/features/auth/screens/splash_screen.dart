@@ -241,8 +241,11 @@ class _SplashScreenState extends State<SplashScreen>
 
       // Get user data
       String? userJsonString = prefs.getString(userStorageKey);
+      if (userJsonString == null) {
+        return null;
+      }
 
-      final userJson = jsonDecode(userJsonString!) as Map<String, dynamic>;
+      final userJson = jsonDecode(userJsonString) as Map<String, dynamic>;
       return UserModel.fromJson(userJson);
     } catch (e) {
       debugPrint('SplashScreen: Error getting local user data: $e');
