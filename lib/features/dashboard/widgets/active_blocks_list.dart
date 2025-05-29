@@ -7,17 +7,6 @@ import '../../../../data/local/models/app_model.dart';
 import '../controllers/dashboard_controller.dart';
 import '../controllers/quick_mood_controller.dart';
 
-/// Production-level Blocklist Screen
-///
-/// Features:
-/// - Complete app selection interface with search functionality
-/// - Category-based app organization with selection presets
-/// - Real-time search with debouncing for performance
-/// - Professional UI with loading states and error handling
-/// - Smart categorization and filtering system
-/// - Batch selection operations (select all, clear all, etc.)
-/// - Enhanced user experience with animations and feedback
-/// - Integration with both Dashboard and QuickMode controllers
 class BlocklistScreen extends StatefulWidget {
   const BlocklistScreen({super.key});
 
@@ -794,8 +783,7 @@ class _BlocklistScreenState extends State<BlocklistScreen>
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (app.category != null &&
-                            app.category!.isNotEmpty) ...[
+                        if (app.category.isNotEmpty) ...[
                           const SizedBox(height: 2),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -805,7 +793,7 @@ class _BlocklistScreenState extends State<BlocklistScreen>
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              app.category!,
+                              app.category,
                               style: TextStyle(
                                 color: app.iconColor,
                                 fontSize: 10,
