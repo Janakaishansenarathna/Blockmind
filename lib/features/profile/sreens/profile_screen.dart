@@ -351,7 +351,12 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatColumn(String label, String value, Color color) {
+  Widget _buildStatColumn({
+    required String label,
+    required String value,
+    required Color color,
+    IconData icon = Icons.schedule,
+  }) {
     return Column(
       children: [
         Container(
@@ -362,7 +367,7 @@ class ProfileScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Icon(
-            Icons.schedule,
+            icon,
             color: color,
             size: 20,
           ),
@@ -391,12 +396,17 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMiniStat(String label, String value, IconData icon) {
+  Widget _buildMiniStat({
+    required String label,
+    required String value,
+    required IconData icon,
+    Color iconColor = AppColors.buttonPrimary,
+  }) {
     return Column(
       children: [
         Icon(
           icon,
-          color: AppColors.buttonPrimary,
+          color: iconColor,
           size: 24,
         ),
         const SizedBox(height: 8),
@@ -432,15 +442,21 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuCard(List<Widget> children) {
+  Widget _buildMenuCard({
+    required List<Widget> children,
+    Color backgroundColor = AppColors.containerBackground,
+    double borderRadius = 16,
+    double blurRadius = 10,
+    double shadowOpacity = 0.05,
+  }) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.containerBackground,
-        borderRadius: BorderRadius.circular(16),
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(shadowOpacity),
+            blurRadius: blurRadius,
             offset: const Offset(0, 5),
           ),
         ],
