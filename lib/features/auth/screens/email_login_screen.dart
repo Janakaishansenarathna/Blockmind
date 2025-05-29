@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../utils/constants/app_colors.dart';
-import '../../../utils/constants/app_images.dart';
 import '../../../common/widgets/buttons/custom_button.dart';
 import '../controllers/auth_controller.dart';
 import '../../../routes/routes.dart';

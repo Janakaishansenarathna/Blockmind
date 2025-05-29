@@ -1,25 +1,68 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart';
 import '../local/models/user_model.dart';
-import '../repositories/auth_repository.dart';
 
 class FirebaseAuthService {
-  final AuthRepository _authRepository = AuthRepository();
+  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email', 'profile'],
+  );
 
   // Get current Firebase Auth user
-  User? get currentUser => _authRepository.currentUser;
+  User? get currentUser => _firebaseAuth.currentUser;
 
   // Stream to track auth state changes
-  Stream<User?> get authStateChanges => _authRepository.authStateChanges;
+  Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
+
+  // Check if email is verified
+  bool get isEmailVerified => currentUser?.emailVerified ?? false;
 
   // Register with email and password
   Future<UserModel> registerWithEmailPassword(
       String name, String email, String password) async {
     try {
-      return await _authRepository.registerWithEmailPassword(
-          name, email, password);
-    } catch (e) {
-      print('FirebaseAuthService - Register error: $e');
+      debugPrint('Starting email registration for: $email');
+
+      // Create user in Firebase Auth
+      UserCredential result = await _firebaseAuth
+          .createUserWithEmailAndPassword(email: email, password: password);
+
+      if (result.user == null) {
+        throw FirebaseAuthException(
+          code: 'user-creation-failed',
+          message: 'Failed to create user account',
+        );
+      }
+
+      debugPrint('Firebase user created successfully: ${result.user!.uid}');
+
+      // Update display name
+      await result.user!.updateDisplayName(name);
+
+      // Send email verification
+      await result.user!.sendEmailVerification();
+
+      // Create user model
+      UserModel userModel = UserModel.newUser(
+        id: result.user!.uid,
+        name: name,
+        email: email,
+        photoUrl: result.user!.photoURL,
+      );
+
+      debugPrint('User model created: ${userModel.id}');
+      return userModel;
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+          'Firebase Auth Exception during registration: ${e.code} - ${e.message}');
       rethrow;
+    } catch (e) {
+      debugPrint('Unexpected error during registration: $e');
+      throw FirebaseAuthException(
+        code: 'registration-failed',
+        message: 'Registration failed: ${e.toString()}',
+      );
     }
   }
 
@@ -27,82 +70,196 @@ class FirebaseAuthService {
   Future<UserModel> loginWithEmailPassword(
       String email, String password) async {
     try {
-      return await _authRepository.loginWithEmailPassword(email, password);
-    } catch (e) {
-      print('FirebaseAuthService - Login error: $e');
+      debugPrint('Starting email login for: $email');
+
+      // Sign in with Firebase Auth
+      UserCredential result = await _firebaseAuth.signInWithEmailAndPassword(
+          email: email, password: password);
+
+      if (result.user == null) {
+        throw FirebaseAuthException(
+          code: 'login-failed',
+          message: 'Login failed. Please try again.',
+        );
+      }
+
+      debugPrint('Firebase login successful: ${result.user!.uid}');
+
+      // Create user model from Firebase user
+      UserModel userModel = UserModel.newUser(
+        id: result.user!.uid,
+        name: result.user!.displayName ?? 'User',
+        email: result.user!.email!,
+        photoUrl: result.user!.photoURL,
+      );
+
+      // Update last login
+      userModel = userModel.copyWith(lastLoginAt: DateTime.now());
+
+      debugPrint('User model created for login: ${userModel.id}');
+      return userModel;
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+          'Firebase Auth Exception during login: ${e.code} - ${e.message}');
       rethrow;
+    } catch (e) {
+      debugPrint('Unexpected error during login: $e');
+      throw FirebaseAuthException(
+        code: 'login-failed',
+        message: 'Login failed: ${e.toString()}',
+      );
     }
   }
 
   // Sign in with Google
   Future<UserModel> signInWithGoogle() async {
     try {
-      return await _authRepository.signInWithGoogle();
-    } catch (e) {
-      print('FirebaseAuthService - Google sign in error: $e');
+      debugPrint('Starting Google sign in');
+
+      // Clear any previous Google sign in session
+      await _googleSignIn.signOut();
+
+      // Trigger the Google Sign In flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+      if (googleUser == null) {
+        debugPrint('Google sign in was cancelled by user');
+        throw FirebaseAuthException(
+          code: 'google-signin-aborted',
+          message: 'Google sign in was cancelled by user',
+        );
+      }
+
+      debugPrint('Google user obtained: ${googleUser.email}');
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
+        debugPrint('Failed to get Google authentication tokens');
+        throw FirebaseAuthException(
+          code: 'google-auth-failed',
+          message: 'Failed to get Google authentication tokens',
+        );
+      }
+
+      debugPrint('Google authentication tokens obtained');
+
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase with the Google credential
+      UserCredential result =
+          await _firebaseAuth.signInWithCredential(credential);
+
+      if (result.user == null) {
+        throw FirebaseAuthException(
+          code: 'firebase-signin-failed',
+          message: 'Failed to sign in with Google credentials',
+        );
+      }
+
+      debugPrint('Firebase Google sign in successful: ${result.user!.uid}');
+
+      // Create user model
+      UserModel userModel = UserModel.newUser(
+        id: result.user!.uid,
+        name: result.user!.displayName ?? googleUser.displayName ?? 'User',
+        email: result.user!.email ?? googleUser.email,
+        photoUrl: result.user!.photoURL,
+      );
+
+      // Update last login
+      userModel = userModel.copyWith(lastLoginAt: DateTime.now());
+
+      debugPrint('User model created for Google sign in: ${userModel.id}');
+      return userModel;
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+          'Firebase Auth Exception during Google sign in: ${e.code} - ${e.message}');
+      await _cleanupGoogleSignIn();
       rethrow;
+    } catch (e) {
+      debugPrint('Unexpected error during Google sign in: $e');
+      await _cleanupGoogleSignIn();
+
+      // Handle specific Google sign in errors
+      if (e.toString().contains('12500')) {
+        throw FirebaseAuthException(
+          code: 'google-signin-config-error',
+          message:
+              'Google Sign-In configuration error. Please check your setup.',
+        );
+      } else if (e.toString().contains('network')) {
+        throw FirebaseAuthException(
+          code: 'network-request-failed',
+          message:
+              'Network error during Google sign in. Please check your connection.',
+        );
+      }
+
+      throw FirebaseAuthException(
+        code: 'google-signin-failed',
+        message: 'Google sign in failed: ${e.toString()}',
+      );
     }
   }
 
-  // Sign in with Facebook (commented out as per your code)
-  // Future<UserModel> signInWithFacebook() async {
-  //   try {
-  //     return await _authRepository.signInWithFacebook();
-  //   } catch (e) {
-  //     print('FirebaseAuthService - Facebook sign in error: $e');
-  //     rethrow;
-  //   }
-  // }
+  // Helper method to cleanup Google sign in state
+  Future<void> _cleanupGoogleSignIn() async {
+    try {
+      await _googleSignIn.signOut();
+    } catch (e) {
+      debugPrint('Error during Google sign out cleanup: $e');
+    }
+  }
 
   // Reset password
   Future<void> resetPassword(String email) async {
     try {
-      return await _authRepository.resetPassword(email);
-    } catch (e) {
-      print('FirebaseAuthService - Reset password error: $e');
+      debugPrint('Sending password reset email to: $email');
+
+      if (email.isEmpty) {
+        throw FirebaseAuthException(
+          code: 'invalid-email',
+          message: 'Email address cannot be empty',
+        );
+      }
+
+      await _firebaseAuth.sendPasswordResetEmail(email: email);
+      debugPrint('Password reset email sent successfully');
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+          'Firebase Auth Exception during password reset: ${e.code} - ${e.message}');
       rethrow;
+    } catch (e) {
+      debugPrint('Unexpected error during password reset: $e');
+      throw FirebaseAuthException(
+        code: 'password-reset-failed',
+        message: 'Failed to send password reset email: ${e.toString()}',
+      );
     }
   }
 
   // Logout
   Future<void> signOut() async {
     try {
-      return await _authRepository.signOut();
+      debugPrint('Starting sign out process');
+
+      // Sign out from Firebase
+      await _firebaseAuth.signOut();
+
+      // Sign out from Google
+      await _googleSignIn.signOut();
+
+      debugPrint('Sign out completed successfully');
     } catch (e) {
-      print('FirebaseAuthService - Sign out error: $e');
-      rethrow;
-    }
-  }
-
-  // Get current user model
-  Future<UserModel?> getCurrentUser() async {
-    try {
-      UserModel? user = await _authRepository.getCurrentUserFromLocal();
-
-      // If not in local storage or auth state changed, try Firestore
-      if (user == null || user.id != currentUser?.uid) {
-        user = await _authRepository.getCurrentUserFromFirestore();
-
-        // If found in Firestore, save to local storage
-        if (user != null) {
-          await _authRepository.saveUserToLocal(user);
-        }
-      }
-
-      return user;
-    } catch (e) {
-      print('FirebaseAuthService - Get current user error: $e');
-      return null;
-    }
-  }
-
-  // Check if user is logged in
-  Future<bool> isLoggedIn() async {
-    try {
-      return await _authRepository.isLoggedIn();
-    } catch (e) {
-      print('FirebaseAuthService - Check logged in error: $e');
-      return false;
+      debugPrint('Error during sign out: $e');
+      // Don't rethrow here as sign out should always succeed from user perspective
     }
   }
 
@@ -114,87 +271,158 @@ class FirebaseAuthService {
     String? phone,
   }) async {
     try {
-      return await _authRepository.updateUserProfile(
-        currentUser: currentUser,
+      debugPrint('Updating user profile for: ${currentUser.id}');
+
+      // Update Firebase Auth profile
+      User? firebaseUser = _firebaseAuth.currentUser;
+      if (firebaseUser != null) {
+        if (name != null && name != firebaseUser.displayName) {
+          await firebaseUser.updateDisplayName(name);
+        }
+
+        if (photoUrl != null && photoUrl != firebaseUser.photoURL) {
+          await firebaseUser.updatePhotoURL(photoUrl);
+        }
+      }
+
+      // Create updated user model
+      UserModel updatedUser = currentUser.copyWith(
         name: name,
         photoUrl: photoUrl,
         phone: phone,
+        updatedAt: DateTime.now(),
       );
-    } catch (e) {
-      print('FirebaseAuthService - Update profile error: $e');
-      rethrow;
-    }
-  }
 
-  // Update user premium status
-  Future<UserModel> updatePremiumStatus({
-    required UserModel currentUser,
-    required bool isPremium,
-    required DateTime? expiryDate,
-  }) async {
-    try {
-      return await _authRepository.updatePremiumStatus(
-        currentUser: currentUser,
-        isPremium: isPremium,
-        expiryDate: expiryDate,
-      );
-    } catch (e) {
-      print('FirebaseAuthService - Update premium status error: $e');
+      debugPrint('User profile updated successfully');
+      return updatedUser;
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+          'Firebase Auth Exception during profile update: ${e.code} - ${e.message}');
       rethrow;
+    } catch (e) {
+      debugPrint('Unexpected error during profile update: $e');
+      throw FirebaseAuthException(
+        code: 'profile-update-failed',
+        message: 'Failed to update profile: ${e.toString()}',
+      );
     }
   }
 
   // Send email verification
   Future<void> sendEmailVerification() async {
     try {
-      return await _authRepository.sendEmailVerification();
-    } catch (e) {
-      print('FirebaseAuthService - Send email verification error: $e');
+      User? user = _firebaseAuth.currentUser;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'no-current-user',
+          message: 'No user currently signed in',
+        );
+      }
+
+      if (user.emailVerified) {
+        throw FirebaseAuthException(
+          code: 'email-already-verified',
+          message: 'Email is already verified',
+        );
+      }
+
+      debugPrint('Sending email verification to: ${user.email}');
+      await user.sendEmailVerification();
+      debugPrint('Email verification sent successfully');
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+          'Firebase Auth Exception during email verification: ${e.code} - ${e.message}');
       rethrow;
+    } catch (e) {
+      debugPrint('Unexpected error during email verification: $e');
+      throw FirebaseAuthException(
+        code: 'email-verification-failed',
+        message: 'Failed to send email verification: ${e.toString()}',
+      );
     }
   }
 
   // Check if email is verified
-  Future<bool> isEmailVerified() async {
+  Future<bool> checkEmailVerification() async {
     try {
-      return await _authRepository.isEmailVerified();
-    } catch (e) {
-      print('FirebaseAuthService - Check email verified error: $e');
-      return false;
-    }
-  }
+      User? user = _firebaseAuth.currentUser;
+      if (user == null) return false;
 
-  // Get current user for verification screen
-  Future<UserModel> getCurrentUserForVerification() async {
-    try {
-      return await _authRepository.getCurrentUserForVerification();
+      // Reload user to get latest verification status
+      await user.reload();
+      user = _firebaseAuth.currentUser; // Get refreshed user
+
+      bool verified = user?.emailVerified ?? false;
+      debugPrint('Email verification status: $verified');
+      return verified;
     } catch (e) {
-      print(
-          'FirebaseAuthService - Get current user for verification error: $e');
-      rethrow;
+      debugPrint('Error checking email verification: $e');
+      return false;
     }
   }
 
   // Delete user account
   Future<void> deleteAccount() async {
     try {
-      return await _authRepository.deleteAccount();
-    } catch (e) {
-      print('FirebaseAuthService - Delete account error: $e');
+      User? user = _firebaseAuth.currentUser;
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'no-current-user',
+          message: 'No user currently signed in',
+        );
+      }
+
+      debugPrint('Deleting account for user: ${user.uid}');
+
+      // Delete Firebase Auth user
+      await user.delete();
+
+      // Sign out from Google as well
+      await _googleSignIn.signOut();
+
+      debugPrint('Account deleted successfully');
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+          'Firebase Auth Exception during account deletion: ${e.code} - ${e.message}');
       rethrow;
+    } catch (e) {
+      debugPrint('Unexpected error during account deletion: $e');
+      throw FirebaseAuthException(
+        code: 'account-deletion-failed',
+        message: 'Failed to delete account: ${e.toString()}',
+      );
     }
   }
 
-  // Refresh user data
-  Future<UserModel?> refreshUserData() async {
+  // Reauthenticate user (needed for sensitive operations)
+  Future<void> reauthenticateUser(String password) async {
     try {
-      if (currentUser != null) {
-        return await _authRepository.getCurrentUserFromFirestore();
+      User? user = _firebaseAuth.currentUser;
+      if (user == null || user.email == null) {
+        throw FirebaseAuthException(
+          code: 'no-current-user',
+          message: 'No user currently signed in',
+        );
       }
-      return null;
+
+      AuthCredential credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: password,
+      );
+
+      debugPrint('Reauthenticating user');
+      await user.reauthenticateWithCredential(credential);
+      debugPrint('User reauthenticated successfully');
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+          'Firebase Auth Exception during reauthentication: ${e.code} - ${e.message}');
+      rethrow;
     } catch (e) {
-      print('FirebaseAuthService - Refresh user data error: $e');
-      return null;
+      debugPrint('Unexpected error during reauthentication: $e');
+      throw FirebaseAuthException(
+        code: 'reauthentication-failed',
+        message: 'Failed to reauthenticate: ${e.toString()}',
+      );
     }
   }
 
@@ -212,4 +440,13 @@ class FirebaseAuthService {
 
   // Get user photo URL
   String? get userPhotoUrl => currentUser?.photoURL;
+
+  // Refresh current user
+  Future<void> refreshUser() async {
+    try {
+      await currentUser?.reload();
+    } catch (e) {
+      debugPrint('Error refreshing user: $e');
+    }
+  }
 }

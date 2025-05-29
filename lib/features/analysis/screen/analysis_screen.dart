@@ -43,7 +43,7 @@ class AnalysisScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -56,7 +56,7 @@ class AnalysisScreen extends StatelessWidget {
                         letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       'Your digital wellness insights',
                       style: TextStyle(
@@ -78,7 +78,7 @@ class AnalysisScreen extends StatelessWidget {
                   ),
                 ),
                 child: IconButton(
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.more_vert_rounded,
                     color: AppColors.textPrimary,
                     size: 18,
@@ -126,7 +126,7 @@ class AnalysisScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.calendar_today_rounded,
                               color: Colors.white,
                               size: 16,
@@ -271,7 +271,7 @@ class AnalysisScreen extends StatelessWidget {
             children: [
               Text(
                 controller.formatDuration(controller.totalScreenTime.value),
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
@@ -279,7 +279,7 @@ class AnalysisScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
+              const Text(
                 'of screen time',
                 style: TextStyle(
                   fontSize: 14,
@@ -317,7 +317,7 @@ class AnalysisScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Total Usage',
                       style: TextStyle(
                         fontSize: 14,
@@ -328,7 +328,7 @@ class AnalysisScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       controller.formatDuration(controller.weeklyTotal.value),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -350,7 +350,7 @@ class AnalysisScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
+                    const Text(
                       'Daily Average',
                       style: TextStyle(
                         fontSize: 14,
@@ -361,7 +361,7 @@ class AnalysisScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       controller.formatDuration(controller.dailyAverage.value),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -487,7 +487,7 @@ class AnalysisScreen extends StatelessWidget {
 
         return Text(
           data[dataIndex].label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 12,
             color: AppColors.textSecondary,
             fontWeight: FontWeight.w500,
@@ -510,7 +510,7 @@ class AnalysisScreen extends StatelessWidget {
                 controller.selectedFilter.value == AnalysisFilter.week
                     ? 'Top 4 apps'
                     : 'Top apps',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
@@ -527,7 +527,7 @@ class AnalysisScreen extends StatelessWidget {
                       color: AppColors.borderColor.withOpacity(0.5),
                     ),
                   ),
-                  child: Text(
+                  child: const Text(
                     'View all apps',
                     style: TextStyle(
                       fontSize: 12,
@@ -585,7 +585,7 @@ class AnalysisScreen extends StatelessWidget {
               children: [
                 Text(
                   appData.app.name,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
@@ -594,7 +594,7 @@ class AnalysisScreen extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '${appData.sessions} sessions',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -607,7 +607,7 @@ class AnalysisScreen extends StatelessWidget {
             children: [
               Text(
                 AnalysisController().formatDuration(appData.duration),
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
@@ -726,7 +726,7 @@ class AnalysisScreen extends StatelessWidget {
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
@@ -754,7 +754,7 @@ class AnalysisScreen extends StatelessWidget {
                     Expanded(
                       child: Text(
                         app.app.name,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.w500,

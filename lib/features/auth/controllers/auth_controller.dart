@@ -2,18 +2,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/local/models/user_model.dart';
-import '../../../data/repositories/user_repository.dart';
 import '../../../data/services/firebase_auth_service.dart';
 import '../../../routes/routes.dart';
 import '../../../utils/helpers/loading_helper.dart';
 
 class AuthController extends GetxController {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
-  final UserRepository _userRepository = UserRepository();
   final FirebaseAuthService _authService = FirebaseAuthService();
 
   // Form controllers
@@ -51,12 +46,16 @@ class AuthController extends GetxController {
 
   @override
   void onClose() {
+    _disposeControllers();
+    super.onClose();
+  }
+
+  void _disposeControllers() {
     emailController.dispose();
     passwordController.dispose();
     nameController.dispose();
     confirmPasswordController.dispose();
     forgotPasswordEmailController.dispose();
-    super.onClose();
   }
 
   // Initialize authentication state
@@ -65,7 +64,7 @@ class AuthController extends GetxController {
       isLoading.value = true;
 
       // Listen to auth state changes
-      _auth.authStateChanges().listen((User? user) {
+      _authService.authStateChanges.listen((User? user) {
         if (user != null) {
           _handleUserSignedIn(user);
         } else {
@@ -76,7 +75,7 @@ class AuthController extends GetxController {
       // Check current user
       await checkCurrentUser();
     } catch (e) {
-      print('Error initializing auth: $e');
+      debugPrint('Error initializing auth: $e');
       errorMessage.value = 'Failed to initialize authentication';
     } finally {
       isLoading.value = false;
@@ -86,32 +85,19 @@ class AuthController extends GetxController {
   // Handle user signed in
   Future<void> _handleUserSignedIn(User user) async {
     try {
-      // Get user data from repository
-      UserModel? userData = await _userRepository.getUserById(user.uid);
+      // Create user model from Firebase user
+      final userData = UserModel.newUser(
+        id: user.uid,
+        name: user.displayName ?? 'User',
+        email: user.email ?? '',
+        photoUrl: user.photoURL,
+      );
 
-      if (userData != null) {
-        // Update last login
-        userData = userData.updateLastLogin();
-        await _userRepository.updateUser(userData);
-        currentUser.value = userData;
-      } else {
-        // Create new user if not found
-        final newUser = UserModel.newUser(
-          id: user.uid,
-          name: user.displayName ?? 'User',
-          email: user.email ?? '',
-          photoUrl: user.photoURL,
-        );
-
-        await _userRepository.createUser(newUser);
-        currentUser.value = newUser;
-      }
-
-      // Save to local storage
-      await _saveUserLocally(currentUser.value!);
+      currentUser.value = userData;
+      await _saveUserLocally(userData);
       isAuthenticated.value = true;
     } catch (e) {
-      print('Error handling user sign in: $e');
+      debugPrint('Error handling user sign in: $e');
       errorMessage.value = 'Failed to load user data';
     }
   }
@@ -126,11 +112,10 @@ class AuthController extends GetxController {
   // Check if user is already logged in
   Future<void> checkCurrentUser() async {
     try {
-      // First check Firebase Auth
-      User? firebaseUser = _auth.currentUser;
+      // Check Firebase Auth current user
+      User? firebaseUser = _authService.currentUser;
 
       if (firebaseUser != null) {
-        // User is signed in to Firebase, get user data
         await _handleUserSignedIn(firebaseUser);
       } else {
         // Check local storage for offline data
@@ -141,7 +126,7 @@ class AuthController extends GetxController {
         }
       }
     } catch (e) {
-      print('Error checking current user: $e');
+      debugPrint('Error checking current user: $e');
       errorMessage.value = 'Error checking authentication status';
     }
   }
@@ -154,62 +139,34 @@ class AuthController extends GetxController {
       }
 
       if (!acceptedTerms.value) {
-        errorMessage.value =
-            'Please accept the Terms of Service and Privacy Policy';
-        Get.snackbar(
-          'Terms Required',
-          errorMessage.value,
-          snackPosition: SnackPosition.TOP,
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-        );
+        _showError('Please accept the Terms of Service and Privacy Policy');
         return false;
       }
 
-      isLoading.value = true;
-      errorMessage.value = '';
-      LoadingHelper.show('Creating your account...');
+      _setLoading(true, 'Creating your account...');
 
-      // Use Firebase Auth Service
       UserModel user = await _authService.registerWithEmailPassword(
         nameController.text.trim(),
         emailController.text.trim(),
         passwordController.text.trim(),
       );
 
-      // Update current user
       currentUser.value = user;
       await _saveUserLocally(user);
-
-      // Clear form
       clearRegisterForm();
 
-      // Show success message
-      Get.snackbar(
+      _showSuccess(
         'Account Created',
         'Please check your email to verify your account',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 5),
       );
 
-      // Navigate to email verification
       Get.offAllNamed(AppRoutes.emailVerification);
       return true;
     } catch (e) {
-      errorMessage.value = _handleAuthError(e);
-      Get.snackbar(
-        'Registration Failed',
-        errorMessage.value,
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      _handleError('Registration Failed', e);
       return false;
     } finally {
-      isLoading.value = false;
-      LoadingHelper.hide();
+      _setLoading(false);
     }
   }
 
@@ -220,92 +177,56 @@ class AuthController extends GetxController {
         return false;
       }
 
-      isLoading.value = true;
-      errorMessage.value = '';
-      LoadingHelper.show('Logging in...');
+      _setLoading(true, 'Logging in...');
 
-      // Use Firebase Auth Service
       UserModel user = await _authService.loginWithEmailPassword(
         emailController.text.trim(),
         passwordController.text.trim(),
       );
 
       // Check email verification
-      if (!_auth.currentUser!.emailVerified) {
-        // User exists but email not verified
+      if (!_authService.isEmailVerified) {
         currentUser.value = user;
         await _saveUserLocally(user);
         Get.offAllNamed(AppRoutes.emailVerification);
         return true;
       }
 
-      // User will be handled by auth state listener
       clearLoginForm();
-
-      // Navigate to dashboard
       Get.offAllNamed(AppRoutes.dashboard);
       return true;
     } catch (e) {
-      errorMessage.value = _handleAuthError(e);
-      Get.snackbar(
-        'Login Failed',
-        errorMessage.value,
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      _handleError('Login Failed', e);
       return false;
     } finally {
-      isLoading.value = false;
-      LoadingHelper.hide();
+      _setLoading(false);
     }
   }
 
   // Login with Google
   Future<bool> loginWithGoogle() async {
     try {
-      isLoading.value = true;
-      errorMessage.value = '';
-      LoadingHelper.show('Logging in with Google...');
+      _setLoading(true, 'Logging in with Google...');
 
-      // Use Firebase Auth Service
       UserModel user = await _authService.signInWithGoogle();
 
-      // Update current user
       currentUser.value = user;
       await _saveUserLocally(user);
 
-      // Navigate to dashboard
       Get.offAllNamed(AppRoutes.dashboard);
       return true;
     } catch (e) {
-      errorMessage.value = _handleAuthError(e);
-      Get.snackbar(
-        'Google Login Failed',
-        errorMessage.value,
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      _handleError('Google Login Failed', e);
       return false;
     } finally {
-      isLoading.value = false;
-      LoadingHelper.hide();
+      _setLoading(false);
     }
   }
 
   // Register with Google
   Future<bool> registerWithGoogle() async {
     if (!acceptedTerms.value) {
-      errorMessage.value =
-          'Please accept the Terms of Service and Privacy Policy';
-      Get.snackbar(
-        'Terms Required',
-        errorMessage.value,
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      _showError('Please accept the Terms of Service and Privacy Policy');
       return false;
     }
     return await loginWithGoogle();
@@ -318,85 +239,56 @@ class AuthController extends GetxController {
         return false;
       }
 
-      isLoading.value = true;
-      errorMessage.value = '';
-      LoadingHelper.show('Sending reset email...');
+      _setLoading(true, 'Sending reset email...');
 
-      // Use Firebase Auth Service
       await _authService
           .resetPassword(forgotPasswordEmailController.text.trim());
 
-      Get.snackbar(
+      _showSuccess(
         'Email Sent',
         'Password reset email has been sent to ${forgotPasswordEmailController.text.trim()}',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 5),
       );
 
       clearForgotPasswordForm();
       return true;
     } catch (e) {
-      errorMessage.value = _handleAuthError(e);
-      Get.snackbar(
-        'Reset Failed',
-        errorMessage.value,
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      _handleError('Reset Failed', e);
       return false;
     } finally {
-      isLoading.value = false;
-      LoadingHelper.hide();
+      _setLoading(false);
     }
   }
 
   // Send email verification
   Future<void> sendEmailVerification() async {
     try {
-      isLoading.value = true;
+      _setLoading(true);
 
-      // Use Firebase Auth Service
       await _authService.sendEmailVerification();
 
-      Get.snackbar(
+      _showSuccess(
         'Verification Email Sent',
         'A new verification email has been sent to your email address.',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 5),
       );
     } catch (e) {
-      errorMessage.value = _handleAuthError(e);
-      Get.snackbar(
-        'Error',
-        errorMessage.value,
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      _handleError('Error', e);
     } finally {
-      isLoading.value = false;
+      _setLoading(false);
     }
   }
 
   // Check email verification status
   Future<bool> checkEmailVerification() async {
     try {
-      // Use Firebase Auth Service
-      bool isVerified = await _authService.isEmailVerified();
+      bool isVerified = _authService.isEmailVerified;
 
       if (isVerified) {
-        // Email is verified, navigate to dashboard
         Get.offAllNamed(AppRoutes.dashboard);
         return true;
       }
       return false;
     } catch (e) {
-      errorMessage.value = _handleAuthError(e);
+      _handleError('Verification Check Failed', e);
       return false;
     }
   }
@@ -410,10 +302,8 @@ class AuthController extends GetxController {
     try {
       if (currentUser.value == null) return false;
 
-      isLoading.value = true;
-      LoadingHelper.show('Updating profile...');
+      _setLoading(true, 'Updating profile...');
 
-      // Use Firebase Auth Service
       UserModel updatedUser = await _authService.updateUserProfile(
         currentUser: currentUser.value!,
         name: name,
@@ -421,71 +311,38 @@ class AuthController extends GetxController {
         phone: phone,
       );
 
-      // Update local user
       currentUser.value = updatedUser;
       await _saveUserLocally(updatedUser);
 
-      Get.snackbar(
+      _showSuccess(
         'Profile Updated',
         'Your profile has been updated successfully',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
       );
 
       return true;
     } catch (e) {
-      errorMessage.value = _handleAuthError(e);
-      Get.snackbar(
-        'Update Failed',
-        errorMessage.value,
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      _handleError('Update Failed', e);
       return false;
     } finally {
-      isLoading.value = false;
-      LoadingHelper.hide();
+      _setLoading(false);
     }
   }
 
   // Sign out
   Future<void> signOut() async {
     try {
-      isLoading.value = true;
-      LoadingHelper.show('Signing out...');
+      _setLoading(true, 'Signing out...');
 
-      // Use Firebase Auth Service
       await _authService.signOut();
-
-      // Clear local data
       await _clearUserLocally();
 
-      // Reset state
-      currentUser.value = null;
-      isAuthenticated.value = false;
-      errorMessage.value = '';
-
-      // Clear all forms
-      clearLoginForm();
-      clearRegisterForm();
-      clearForgotPasswordForm();
-
-      // Navigate to login screen
+      _resetState();
       Get.offAllNamed(AppRoutes.login);
     } catch (e) {
-      print('Error signing out: $e');
-      Get.snackbar(
-        'Sign Out Error',
-        'Failed to sign out completely',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange,
-        colorText: Colors.white,
-      );
+      debugPrint('Error signing out: $e');
+      _showError('Failed to sign out completely');
     } finally {
-      isLoading.value = false;
-      LoadingHelper.hide();
+      _setLoading(false);
     }
   }
 
@@ -494,53 +351,80 @@ class AuthController extends GetxController {
     try {
       if (currentUser.value == null) return false;
 
-      isLoading.value = true;
-      LoadingHelper.show('Deleting account...');
+      _setLoading(true, 'Deleting account...');
 
-      // Delete user data from Firestore
-      await _userRepository.deleteUser(currentUser.value!.id);
-
-      // Delete Firebase user
-      User? firebaseUser = _auth.currentUser;
-      if (firebaseUser != null) {
-        await firebaseUser.delete();
-      }
-
-      // Clear local data
+      await _authService.deleteAccount();
       await _clearUserLocally();
 
-      // Reset state
-      currentUser.value = null;
-      isAuthenticated.value = false;
+      _resetState();
 
-      Get.snackbar(
+      _showSuccess(
         'Account Deleted',
         'Your account has been deleted successfully',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
       );
 
-      // Navigate to login screen
       Get.offAllNamed(AppRoutes.login);
       return true;
     } catch (e) {
-      errorMessage.value = _handleAuthError(e);
-      Get.snackbar(
-        'Delete Failed',
-        errorMessage.value,
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      _handleError('Delete Failed', e);
       return false;
     } finally {
-      isLoading.value = false;
+      _setLoading(false);
+    }
+  }
+
+  // Helper methods
+  void _setLoading(bool loading, [String? message]) {
+    isLoading.value = loading;
+    if (loading && message != null) {
+      LoadingHelper.show(message);
+    } else if (!loading) {
       LoadingHelper.hide();
     }
   }
 
-  // Toggle password visibility
+  void _showSuccess(String title, String message) {
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.green,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 5),
+    );
+  }
+
+  void _showError(String message) {
+    errorMessage.value = message;
+    Get.snackbar(
+      'Error',
+      message,
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+    );
+  }
+
+  void _handleError(String title, dynamic error) {
+    String message = _getErrorMessage(error);
+    errorMessage.value = message;
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+    );
+  }
+
+  void _resetState() {
+    currentUser.value = null;
+    isAuthenticated.value = false;
+    errorMessage.value = '';
+    clearAllForms();
+  }
+
+  // Toggle methods
   void togglePasswordVisibility() {
     obscurePassword.value = !obscurePassword.value;
   }
@@ -574,6 +458,12 @@ class AuthController extends GetxController {
     errorMessage.value = '';
   }
 
+  void clearAllForms() {
+    clearLoginForm();
+    clearRegisterForm();
+    clearForgotPasswordForm();
+  }
+
   // Local storage methods
   Future<void> _saveUserLocally(UserModel user) async {
     try {
@@ -582,7 +472,7 @@ class AuthController extends GetxController {
       await prefs.setString(userStorageKey, userJson);
       await prefs.setBool(isLoggedInKey, true);
     } catch (e) {
-      print('Error saving user locally: $e');
+      debugPrint('Error saving user locally: $e');
     }
   }
 
@@ -596,7 +486,7 @@ class AuthController extends GetxController {
         return UserModel.fromJson(userJson);
       }
     } catch (e) {
-      print('Error getting user from local storage: $e');
+      debugPrint('Error getting user from local storage: $e');
     }
     return null;
   }
@@ -607,7 +497,7 @@ class AuthController extends GetxController {
       await prefs.remove(userStorageKey);
       await prefs.setBool(isLoggedInKey, false);
     } catch (e) {
-      print('Error clearing user data: $e');
+      debugPrint('Error clearing user data: $e');
     }
   }
 
@@ -653,7 +543,7 @@ class AuthController extends GetxController {
   }
 
   // Error handling
-  String _handleAuthError(dynamic error) {
+  String _getErrorMessage(dynamic error) {
     if (error is FirebaseAuthException) {
       switch (error.code) {
         case 'user-not-found':
@@ -689,8 +579,9 @@ class AuthController extends GetxController {
         default:
           return error.message ?? 'An authentication error occurred.';
       }
-    } else if (error.toString().contains('network')) {
-      return 'Network error. Please check your internet connection.';
+    } else if (error.toString().contains('network') ||
+        error.toString().contains('12500')) {
+      return 'Network error. Please check your internet connection and try again.';
     } else {
       return error.toString().isNotEmpty
           ? error.toString()
@@ -700,7 +591,7 @@ class AuthController extends GetxController {
 
   // Getters for UI
   bool get isUserLoggedIn => isAuthenticated.value && currentUser.value != null;
-  bool get isEmailVerified => _auth.currentUser?.emailVerified ?? false;
+  bool get isEmailVerified => _authService.isEmailVerified;
   String get userDisplayName => currentUser.value?.name ?? 'User';
   String get userEmail => currentUser.value?.email ?? '';
   String get userPhotoUrl => currentUser.value?.photoUrl ?? '';

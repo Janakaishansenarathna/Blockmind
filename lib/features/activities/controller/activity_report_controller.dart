@@ -741,9 +741,4 @@ class ActivityReportController extends GetxController {
       // Ignore the error and continue
     }
   }
-
-  @override
-  void onClose() {
-    super.onClose();
-  }
 }

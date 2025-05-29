@@ -12,7 +12,7 @@ import '../../../data/local/models/user_model.dart';
 
 import '../../../data/services/app_blocker_manager.dart';
 import '../../../data/services/app_blocker_service.dart';
-import '../../../utils/constants/app_colors.dart';
+import '../../../data/services/schedule_service.dart'; // ADDED: Import schedule service
 import 'quick_mood_controller.dart';
 
 /// Production-level Dashboard Controller
@@ -33,6 +33,9 @@ class DashboardController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseAppBlockerService _blockerService = FirebaseAppBlockerService();
   final AppBlockerManager _appBlockerManager = AppBlockerManager();
+
+  /// ADDED: Schedule service for proper schedule management
+  final ScheduleService _scheduleService = ScheduleService();
 
   /// Quick Mode Controller dependency
   late QuickModeController _quickModeController;
@@ -498,8 +501,8 @@ class DashboardController extends GetxController {
       // User data listener
       _setupUserDataListener();
 
-      // Schedules listener (most important for dashboard)
-      _setupSchedulesListener();
+      // UPDATED: Use schedule service approach instead of direct Firestore listener
+      await _loadSchedulesWithService();
 
       // Blocked apps listener
       _setupBlockedAppsListener();
@@ -527,21 +530,93 @@ class DashboardController extends GetxController {
     );
   }
 
-  /// Set up schedules real-time listener
-  void _setupSchedulesListener() {
-    _scheduleListener = _firestore
-        .collection('users')
-        .doc(currentUserId.value)
-        .collection('schedules')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .listen(
-      _handleScheduleSnapshot,
-      onError: (error) {
-        print('DashboardController: Schedule listener error: $error');
-        schedulesError.value = 'Failed to load schedules: $error';
-      },
-    );
+  /// UPDATED: Load schedules using ScheduleService approach
+  Future<void> _loadSchedulesWithService() async {
+    try {
+      isLoadingSchedules.value = true;
+      schedulesError.value = '';
+
+      print(
+          'DashboardController: Loading schedules using ScheduleService for user: ${currentUserId.value}');
+
+      // Use the same approach as ScheduleController
+      final loadedSchedules =
+          await _scheduleService.getAllSchedules(currentUserId.value);
+
+      print(
+          'DashboardController: Loaded ${loadedSchedules.length} schedules from ScheduleService');
+
+      // Update all schedules
+      allSchedules.assignAll(loadedSchedules);
+
+      // Update derived schedule lists
+      _updateDerivedScheduleLists();
+
+      // Force UI update
+      allSchedules.refresh();
+      latestSchedules.refresh();
+      activeSchedules.refresh();
+      todaySchedules.refresh();
+
+      print(
+          'DashboardController: Schedule loading completed - ${loadedSchedules.length} total, ${activeSchedules.length} active, ${todaySchedules.length} today');
+
+      // Set up a periodic refresh for real-time updates
+      _startScheduleMonitoring();
+    } catch (e) {
+      print('DashboardController: Error loading schedules with service: $e');
+      schedulesError.value = 'Error loading schedules: $e';
+    } finally {
+      isLoadingSchedules.value = false;
+    }
+  }
+
+  /// ADDED: Start schedule monitoring for real-time updates
+  void _startScheduleMonitoring() {
+    // Refresh schedules every 30 seconds for real-time updates
+    Timer.periodic(const Duration(seconds: 30), (timer) async {
+      if (currentUserId.value.isNotEmpty && isAuthenticated.value) {
+        try {
+          final updatedSchedules =
+              await _scheduleService.getAllSchedules(currentUserId.value);
+
+          // Only update if there are changes
+          if (updatedSchedules.length != allSchedules.length ||
+              _scheduleListsAreDifferent(
+                  updatedSchedules, allSchedules.toList())) {
+            print(
+                'DashboardController: Schedule changes detected, updating...');
+
+            allSchedules.assignAll(updatedSchedules);
+            _updateDerivedScheduleLists();
+
+            // Force UI refresh
+            allSchedules.refresh();
+            latestSchedules.refresh();
+            activeSchedules.refresh();
+            todaySchedules.refresh();
+          }
+        } catch (e) {
+          print('DashboardController: Error in schedule monitoring: $e');
+        }
+      }
+    });
+  }
+
+  /// ADDED: Helper method to check if schedule lists are different
+  bool _scheduleListsAreDifferent(
+      List<ScheduleModel> list1, List<ScheduleModel> list2) {
+    if (list1.length != list2.length) return true;
+
+    for (int i = 0; i < list1.length; i++) {
+      if (list1[i].id != list2[i].id ||
+          list1[i].isActive != list2[i].isActive ||
+          list1[i].title != list2[i].title) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /// Set up blocked apps real-time listener
@@ -605,181 +680,6 @@ class DashboardController extends GetxController {
       }
     } catch (e) {
       print('DashboardController: Error handling user data snapshot: $e');
-    }
-  }
-
-  /// Handle schedule snapshot updates - FIXED VERSION
-  void _handleScheduleSnapshot(QuerySnapshot snapshot) {
-    try {
-      isLoadingSchedules.value = true;
-      schedulesError.value = '';
-
-      print(
-          'DashboardController: Schedule snapshot received with ${snapshot.docs.length} documents');
-
-      final scheduleList = <ScheduleModel>[];
-
-      for (final doc in snapshot.docs) {
-        try {
-          final data = doc.data() as Map<String, dynamic>;
-
-          // Add document ID to data if not present
-          if (!data.containsKey('id')) {
-            data['id'] = doc.id;
-          }
-
-          print('DashboardController: Processing schedule document ${doc.id}');
-          print('DashboardController: Document data: $data');
-
-          // Try multiple parsing methods
-          ScheduleModel? schedule;
-
-          // First try: Use fromFirestore if available
-          try {
-            schedule = ScheduleModel.fromFirestore(doc, data);
-            print(
-                'DashboardController: Successfully loaded schedule with fromFirestore: ${schedule.title}');
-          } catch (e) {
-            print(
-                'DashboardController: fromFirestore failed for ${doc.id}: $e');
-
-            // Second try: Use fromMap if available
-            try {
-              schedule = ScheduleModel.fromMap(data);
-              print(
-                  'DashboardController: Successfully loaded schedule with fromMap: ${schedule.title}');
-            } catch (e2) {
-              print('DashboardController: fromMap failed for ${doc.id}: $e2');
-
-              // Third try: Use alternative parsing method
-              schedule = _parseScheduleAlternative(doc.id, data);
-              if (schedule != null) {
-                print(
-                    'DashboardController: Successfully loaded schedule with alternative method: ${schedule.title}');
-              }
-            }
-          }
-
-          if (schedule != null) {
-            scheduleList.add(schedule);
-          } else {
-            print(
-                'DashboardController: All parsing methods failed for ${doc.id}');
-          }
-        } catch (e) {
-          print('DashboardController: Error processing schedule ${doc.id}: $e');
-        }
-      }
-
-      // Update all schedules with explicit notification
-      allSchedules.assignAll(scheduleList);
-      print(
-          'DashboardController: Updated allSchedules with ${allSchedules.length} schedules');
-
-      // Update derived schedule lists
-      _updateDerivedScheduleLists();
-
-      // Force UI update
-      allSchedules.refresh();
-      latestSchedules.refresh();
-      activeSchedules.refresh();
-      todaySchedules.refresh();
-
-      print(
-          'DashboardController: Schedule processing completed - ${scheduleList.length} total, ${activeSchedules.length} active, ${todaySchedules.length} today');
-    } catch (e) {
-      print('DashboardController: Error handling schedule snapshot: $e');
-      schedulesError.value = 'Error loading schedules: $e';
-    } finally {
-      isLoadingSchedules.value = false;
-    }
-  }
-
-  /// Alternative schedule parsing method for fallback
-  ScheduleModel? _parseScheduleAlternative(
-      String docId, Map<String, dynamic> data) {
-    try {
-      // Parse time fields safely
-      TimeOfDay parseTime(dynamic timeData) {
-        if (timeData is Map<String, dynamic>) {
-          return TimeOfDay(
-            hour: timeData['hour'] ?? 0,
-            minute: timeData['minute'] ?? 0,
-          );
-        } else if (timeData is String) {
-          final parts = timeData.split(':');
-          return TimeOfDay(
-            hour: int.tryParse(parts[0]) ?? 0,
-            minute: int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
-          );
-        }
-        return const TimeOfDay(hour: 8, minute: 0);
-      }
-
-      // Parse color safely
-      Color parseColor(dynamic colorData) {
-        if (colorData is int) {
-          return Color(colorData);
-        } else if (colorData is String) {
-          return Color(int.tryParse(colorData) ?? 0xFF2196F3);
-        }
-        return Colors.blue;
-      }
-
-      // Parse icon safely
-      IconData parseIcon(dynamic iconData) {
-        if (iconData is int) {
-          return IconData(iconData, fontFamily: 'MaterialIcons');
-        }
-        return Icons.schedule;
-      }
-
-      // Parse days list safely
-      List<int> parseDays(dynamic daysData) {
-        if (daysData is List) {
-          return daysData
-              .map((e) => e is int ? e : int.tryParse(e.toString()) ?? 1)
-              .toList();
-        }
-        return [1, 2, 3, 4, 5]; // Default to weekdays
-      }
-
-      // Parse blocked apps list safely
-      List<String> parseBlockedApps(dynamic appsData) {
-        if (appsData is List) {
-          return appsData.map((e) => e.toString()).toList();
-        }
-        return [];
-      }
-
-      // Parse DateTime safely
-      DateTime parseDateTime(dynamic dateData) {
-        if (dateData is Timestamp) {
-          return dateData.toDate();
-        } else if (dateData is String) {
-          return DateTime.tryParse(dateData) ?? DateTime.now();
-        }
-        return DateTime.now();
-      }
-
-      return ScheduleModel(
-        id: docId,
-        title: data['title']?.toString() ?? 'Untitled Schedule',
-        icon: parseIcon(data['icon']),
-        iconColor: parseColor(data['iconColor']),
-        days: parseDays(data['days']),
-        startTime: parseTime(data['startTime']),
-        endTime: parseTime(data['endTime']),
-        blockedApps: parseBlockedApps(data['blockedApps']),
-        isActive: data['isActive'] ?? true,
-        createdAt: parseDateTime(data['createdAt']),
-        lastTriggered: data['lastTriggered'] != null
-            ? parseDateTime(data['lastTriggered'])
-            : null,
-      );
-    } catch (e) {
-      print('DashboardController: Alternative parsing failed: $e');
-      return null;
     }
   }
 
@@ -967,7 +867,7 @@ class DashboardController extends GetxController {
 
   // ===== SCHEDULE PUBLIC API METHODS =====
 
-  /// Force refresh schedules from Firebase
+  /// Force refresh schedules from Firebase - UPDATED TO USE SERVICE
   Future<void> refreshSchedules() async {
     try {
       if (currentUserId.value.isEmpty) {
@@ -975,22 +875,35 @@ class DashboardController extends GetxController {
         return;
       }
 
-      print('DashboardController: Force refreshing schedules...');
+      print(
+          'DashboardController: Force refreshing schedules using ScheduleService...');
 
-      // Manually trigger a refresh by re-querying Firebase
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(currentUserId.value)
-          .collection('schedules')
-          .orderBy('createdAt', descending: true)
-          .get();
+      isLoadingSchedules.value = true;
+      schedulesError.value = '';
 
-      _handleScheduleSnapshot(snapshot);
+      // Use ScheduleService to get fresh data
+      final refreshedSchedules =
+          await _scheduleService.getAllSchedules(currentUserId.value);
 
-      print('DashboardController: Force refresh completed');
+      // Update all schedules
+      allSchedules.assignAll(refreshedSchedules);
+
+      // Update derived schedule lists
+      _updateDerivedScheduleLists();
+
+      // Force UI update
+      allSchedules.refresh();
+      latestSchedules.refresh();
+      activeSchedules.refresh();
+      todaySchedules.refresh();
+
+      print(
+          'DashboardController: Force refresh completed with ${refreshedSchedules.length} schedules');
     } catch (e) {
       print('DashboardController: Error force refreshing schedules: $e');
       schedulesError.value = 'Failed to refresh schedules: $e';
+    } finally {
+      isLoadingSchedules.value = false;
     }
   }
 
@@ -1071,7 +984,7 @@ class DashboardController extends GetxController {
     return stats;
   }
 
-  /// Toggle schedule active state
+  /// Toggle schedule active state - UPDATED TO USE SERVICE
   Future<bool> toggleScheduleActive(String scheduleId, bool isActive) async {
     try {
       if (currentUserId.value.isEmpty) {
@@ -1079,12 +992,12 @@ class DashboardController extends GetxController {
         return false;
       }
 
-      await _firestore
-          .collection('users')
-          .doc(currentUserId.value)
-          .collection('schedules')
-          .doc(scheduleId)
-          .update({'isActive': isActive});
+      // Use ScheduleService for consistent behavior
+      await _scheduleService.toggleScheduleActive(
+          scheduleId, isActive, currentUserId.value);
+
+      // Refresh schedules to get updated data
+      await refreshSchedules();
 
       print('DashboardController: Schedule $scheduleId toggled to $isActive');
       return true;
@@ -1094,7 +1007,7 @@ class DashboardController extends GetxController {
     }
   }
 
-  /// Delete schedule
+  /// Delete schedule - UPDATED TO USE SERVICE
   Future<bool> deleteSchedule(String scheduleId) async {
     try {
       if (currentUserId.value.isEmpty) {
@@ -1102,81 +1015,17 @@ class DashboardController extends GetxController {
         return false;
       }
 
-      await _firestore
-          .collection('users')
-          .doc(currentUserId.value)
-          .collection('schedules')
-          .doc(scheduleId)
-          .delete();
+      // Use ScheduleService for consistent behavior
+      await _scheduleService.deleteSchedule(scheduleId, currentUserId.value);
+
+      // Refresh schedules to get updated data
+      await refreshSchedules();
 
       print('DashboardController: Schedule $scheduleId deleted');
       return true;
     } catch (e) {
       print('DashboardController: Error deleting schedule: $e');
       return false;
-    }
-  }
-
-  // ===== DEBUG METHODS =====
-
-  /// Debug method to print current schedule state
-  void debugPrintScheduleState() {
-    print('=== DASHBOARD CONTROLLER SCHEDULE DEBUG ===');
-    print('User ID: ${currentUserId.value}');
-    print('Is Loading Schedules: ${isLoadingSchedules.value}');
-    print('Schedules Error: ${schedulesError.value}');
-    print('All Schedules Count: ${allSchedules.length}');
-    print('Latest Schedules Count: ${latestSchedules.length}');
-    print('Active Schedules Count: ${activeSchedules.length}');
-    print('Today Schedules Count: ${todaySchedules.length}');
-    print(
-        'Current Active Schedule: ${currentActiveSchedule.value?.title ?? 'None'}');
-
-    print('\nAll Schedules Details:');
-    for (int i = 0; i < allSchedules.length; i++) {
-      final schedule = allSchedules[i];
-      print(
-          '  [$i] ${schedule.title} (ID: ${schedule.id}, Active: ${schedule.isActive})');
-    }
-
-    print('\nLatest Schedules Details:');
-    for (int i = 0; i < latestSchedules.length; i++) {
-      final schedule = latestSchedules[i];
-      print('  [$i] ${schedule.title} (ID: ${schedule.id})');
-    }
-
-    print('=== END DEBUG ===');
-  }
-
-  /// Test method to create a sample schedule (for debugging)
-  Future<void> createTestSchedule() async {
-    try {
-      if (currentUserId.value.isEmpty) {
-        print('DashboardController: Cannot create test schedule - no user ID');
-        return;
-      }
-
-      final testSchedule = {
-        'title': 'Test Schedule',
-        'icon': Icons.schedule.codePoint,
-        'iconColor': Colors.blue.value,
-        'days': [1, 2, 3, 4, 5], // Weekdays
-        'startTime': {'hour': 9, 'minute': 0},
-        'endTime': {'hour': 17, 'minute': 0},
-        'blockedApps': ['com.facebook.katana', 'com.instagram.android'],
-        'isActive': true,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-
-      await _firestore
-          .collection('users')
-          .doc(currentUserId.value)
-          .collection('schedules')
-          .add(testSchedule);
-
-      print('DashboardController: Test schedule created successfully');
-    } catch (e) {
-      print('DashboardController: Error creating test schedule: $e');
     }
   }
 
@@ -1483,7 +1332,7 @@ class DashboardController extends GetxController {
     }
   }
 
-  /// Refresh all data
+  /// Refresh all data - UPDATED TO INCLUDE SCHEDULES
   Future<void> refreshData() async {
     try {
       await Future.wait([
@@ -1593,5 +1442,69 @@ class DashboardController extends GetxController {
     _clearCache();
 
     print('DashboardController: Cleanup completed');
+  }
+
+  // ===== DEBUG METHODS =====
+
+  /// Debug method to print current schedule state
+  void debugPrintScheduleState() {
+    print('=== DASHBOARD CONTROLLER SCHEDULE DEBUG ===');
+    print('User ID: ${currentUserId.value}');
+    print('Is Loading Schedules: ${isLoadingSchedules.value}');
+    print('Schedules Error: ${schedulesError.value}');
+    print('All Schedules Count: ${allSchedules.length}');
+    print('Latest Schedules Count: ${latestSchedules.length}');
+    print('Active Schedules Count: ${activeSchedules.length}');
+    print('Today Schedules Count: ${todaySchedules.length}');
+    print(
+        'Current Active Schedule: ${currentActiveSchedule.value?.title ?? 'None'}');
+
+    print('\nAll Schedules Details:');
+    for (int i = 0; i < allSchedules.length; i++) {
+      final schedule = allSchedules[i];
+      print(
+          '  [$i] ${schedule.title} (ID: ${schedule.id}, Active: ${schedule.isActive})');
+    }
+
+    print('\nLatest Schedules Details:');
+    for (int i = 0; i < latestSchedules.length; i++) {
+      final schedule = latestSchedules[i];
+      print('  [$i] ${schedule.title} (ID: ${schedule.id})');
+    }
+
+    print('=== END DEBUG ===');
+  }
+
+  /// Test method to create a sample schedule (for debugging) - UPDATED TO USE SERVICE
+  Future<void> createTestSchedule() async {
+    try {
+      if (currentUserId.value.isEmpty) {
+        print('DashboardController: Cannot create test schedule - no user ID');
+        return;
+      }
+
+      final testSchedule = ScheduleModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: 'Test Schedule from Dashboard',
+        icon: Icons.schedule,
+        iconColor: Colors.blue,
+        days: [1, 2, 3, 4, 5], // Weekdays
+        startTime: const TimeOfDay(hour: 9, minute: 0),
+        endTime: const TimeOfDay(hour: 17, minute: 0),
+        blockedApps: ['com.facebook.katana', 'com.instagram.android'],
+        isActive: true,
+        createdAt: DateTime.now(),
+      );
+
+      // Use ScheduleService for consistency
+      await _scheduleService.createSchedule(testSchedule, currentUserId.value);
+
+      // Refresh schedules to see the new one
+      await refreshSchedules();
+
+      print('DashboardController: Test schedule created successfully');
+    } catch (e) {
+      print('DashboardController: Error creating test schedule: $e');
+    }
   }
 }

@@ -805,7 +805,7 @@ class HelpScreen extends StatelessWidget {
                       isTablet ? 32 : 16,
                       isTablet ? 24 : 16,
                     ),
-                    child: Container(
+                    child: SizedBox(
                       width: double.infinity,
                       child: Text(
                         faq['a']!,
@@ -970,7 +970,7 @@ class _BackupScreenState extends State<BackupScreen> {
               fontSize: isTablet ? 16 : 14,
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
             'Size: $backupSize',
             style: TextStyle(
@@ -1264,7 +1264,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
                     fontSize: isTablet ? 16 : 14,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   description,
                   style: TextStyle(
@@ -1457,7 +1457,7 @@ Widget _buildToggleRow(
           overflow: TextOverflow.ellipsis,
         ),
       ),
-      SizedBox(width: 16),
+      const SizedBox(width: 16),
       Transform.scale(
         scale: isTablet ? 1.2 : 1.0,
         child: CupertinoSwitch(
@@ -1487,7 +1487,7 @@ Widget _buildSlider(String title, int value, int min, int max,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          SizedBox(width: 16),
+          const SizedBox(width: 16),
           Container(
             padding: EdgeInsets.symmetric(
               horizontal: isTablet ? 12 : 8,

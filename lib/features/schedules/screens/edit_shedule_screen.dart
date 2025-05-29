@@ -676,8 +676,9 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                     ? null
                     : () async {
                         // Prevent multiple taps
-                        if (scheduleController.isOperationInProgress.value)
+                        if (scheduleController.isOperationInProgress.value) {
                           return;
+                        }
 
                         final success =
                             await scheduleController.updateSchedule();

@@ -21,6 +21,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     return Scaffold(
       body: Container(
+        height: MediaQuery.of(context).size.height,
         decoration: const BoxDecoration(
           gradient: AppColors.backgroundGradient,
         ),
@@ -74,10 +75,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     // Title
                     Text(
                       'Forgot Password?',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
@@ -110,7 +112,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           onPressed: authController.isLoading.value
                               ? null
                               : () async {
-                                  bool success = await authController.sendPasswordResetEmail();
+                                  bool success = await authController
+                                      .sendPasswordResetEmail();
                                   if (success) {
                                     setState(() {
                                       _emailSent = true;
@@ -145,10 +148,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     // Success title
                     Text(
                       'Check Your Email!',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
@@ -183,7 +187,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       variant: ButtonVariant.outline,
                     ),
                   ],
-                  
+
                   const SizedBox(height: 40),
 
                   // Help section
@@ -211,7 +215,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             const SizedBox(width: 12),
                             Text(
                               'Didn\'t receive the email?',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
                                     color: AppColors.warning,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -221,10 +228,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         const SizedBox(height: 12),
                         Text(
                           '" Check your spam/junk folder\n" Make sure you entered the correct email address\n" Wait a few minutes and try again\n" Contact support if the problem persists',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.textSecondary,
-                                height: 1.5,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textSecondary,
+                                    height: 1.5,
+                                  ),
                         ),
                       ],
                     ),
@@ -321,7 +329,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.error, width: 2),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
         ),
       ],

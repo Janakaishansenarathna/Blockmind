@@ -9,20 +9,8 @@ import '../controllers/dashboard_controller.dart';
 import '../controllers/quick_mood_controller.dart';
 import '../widgets/active_blocks_list.dart';
 import '../widgets/time_selection_screen.dart';
+import 'chatbot_screen.dart';
 
-/// Complete Production-level Home Screen Implementation
-///
-/// Features:
-/// - Dashboard controller integration with latest schedules display
-/// - Real-time data updates and comprehensive error handling
-/// - Advanced UI state management with loading states
-/// - Schedule management with latest 3 schedules display
-/// - Enhanced Quick Mode integration with all states
-/// - Progress tracking with beautiful visualizations
-/// - Pull-to-refresh functionality with offline support
-/// - Professional error handling and recovery mechanisms
-/// - Responsive design with adaptive layouts
-/// - Comprehensive user interaction handling
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -125,9 +113,9 @@ class HomeScreen extends StatelessWidget {
                   _buildQuickActionsSection(dashboardController),
                   const SizedBox(height: 24),
 
-                  // Footer Section
-                  _buildFooterSection(dashboardController),
-                  const SizedBox(height: 16),
+                  // // Footer Section
+                  // _buildFooterSection(dashboardController),
+                  // const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -222,7 +210,7 @@ class HomeScreen extends StatelessWidget {
                         onPressed: () => Get.back(),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.textSecondary,
-                          side: BorderSide(color: AppColors.borderColor),
+                          side: const BorderSide(color: AppColors.borderColor),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -265,13 +253,13 @@ class HomeScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
+          const Icon(
             Icons.wifi_off,
             color: Colors.orange,
             size: 20,
           ),
           const SizedBox(width: 8),
-          Expanded(
+          const Expanded(
             child: Text(
               'You\'re offline. Some features may not work properly.',
               style: TextStyle(
@@ -288,7 +276,7 @@ class HomeScreen extends StatelessWidget {
               backgroundColor: Colors.orange.withOpacity(0.1),
               colorText: Colors.orange,
             ),
-            child: Text(
+            child: const Text(
               'Learn More',
               style: TextStyle(
                 color: Colors.orange,
@@ -305,18 +293,23 @@ class HomeScreen extends StatelessWidget {
   /// Build header section
   Widget _buildHeader(DashboardController dashboardController) {
     return Obx(() => Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            // Left side - User info (takes available space)
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Hello, ${dashboardController.currentLoggedUsername}!',
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Hello, ${dashboardController.currentLoggedUsername}!',
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -326,17 +319,19 @@ class HomeScreen extends StatelessWidget {
                       color: AppColors.textSecondary,
                       fontSize: 14,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   if (dashboardController.isPremiumUser) ...[
                     const SizedBox(height: 4),
-                    Row(
+                    const Row(
                       children: [
                         Icon(
                           Icons.star,
                           color: Colors.amber,
                           size: 16,
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4),
                         Text(
                           'Premium Member',
                           style: TextStyle(
@@ -351,7 +346,13 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+            // Spacing between left and right
+            const SizedBox(width: 12),
+
+            // Right side - Action buttons (fixed width)
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 // Notification bell
                 Stack(
@@ -400,113 +401,28 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
 
-                // User profile menu
-                PopupMenuButton<String>(
-                  icon: Container(
-                    width: 36,
-                    height: 36,
+                const SizedBox(width: 8),
+
+                // AI Chat button
+                SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Container(
                     decoration: BoxDecoration(
-                      color: AppColors.buttonPrimary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: AppColors.buttonPrimary.withOpacity(0.2),
-                        width: 1,
-                      ),
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: dashboardController.currentUserPhotoUrl.isNotEmpty
-                          ? Image.network(
-                              dashboardController.currentUserPhotoUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Icon(
-                                  Icons.person,
-                                  color: AppColors.buttonPrimary,
-                                  size: 20,
-                                );
-                              },
-                            )
-                          : Icon(
-                              Icons.person,
-                              color: AppColors.buttonPrimary,
-                              size: 20,
-                            ),
+                    child: IconButton(
+                      onPressed: () => Get.to(() => const ChatbotScreen()),
+                      tooltip: 'AI Assistant',
+                      icon: const Icon(
+                        Icons.psychology,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      padding: EdgeInsets.zero,
                     ),
                   ),
-                  onSelected: (value) =>
-                      _handleProfileMenuAction(value, dashboardController),
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: 'profile',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.person_outline, size: 18),
-                          const SizedBox(width: 12),
-                          const Text('Profile'),
-                        ],
-                      ),
-                    ),
-                    if (dashboardController.isPremiumUser)
-                      PopupMenuItem(
-                        value: 'premium',
-                        child: Row(
-                          children: [
-                            Icon(Icons.star, size: 18, color: Colors.amber),
-                            const SizedBox(width: 12),
-                            Text('Premium Features',
-                                style: TextStyle(color: Colors.amber)),
-                          ],
-                        ),
-                      )
-                    else
-                      PopupMenuItem(
-                        value: 'upgrade',
-                        child: Row(
-                          children: [
-                            Icon(Icons.upgrade,
-                                size: 18, color: AppColors.buttonPrimary),
-                            const SizedBox(width: 12),
-                            Text('Upgrade to Premium',
-                                style:
-                                    TextStyle(color: AppColors.buttonPrimary)),
-                          ],
-                        ),
-                      ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: 'settings',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.settings_outlined, size: 18),
-                          const SizedBox(width: 12),
-                          const Text('Settings'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'help',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.help_outline, size: 18),
-                          const SizedBox(width: 12),
-                          const Text('Help & Support'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: 'signout',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.logout, size: 18, color: Colors.red),
-                          const SizedBox(width: 12),
-                          const Text('Sign Out',
-                              style: TextStyle(color: Colors.red)),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -677,7 +593,7 @@ class HomeScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.buttonPrimary.withOpacity(0.2)),
           ),
-          child: Column(
+          child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -687,7 +603,7 @@ class HomeScreen extends StatelessWidget {
                     color: AppColors.buttonPrimary,
                     size: 24,
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Text(
                     'Get Started',
                     style: TextStyle(
@@ -698,8 +614,8 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              const Text(
+              SizedBox(height: 8),
+              Text(
                 'Quick Mode helps you stay focused by blocking distracting apps instantly. Start by selecting which apps you want to block during focus sessions.',
                 style: TextStyle(
                   color: AppColors.textSecondary,
@@ -771,7 +687,7 @@ class HomeScreen extends StatelessWidget {
                           ),
                           TextButton(
                             onPressed: () => _showBlocklistScreen(),
-                            child: Text(
+                            child: const Text(
                               'Edit',
                               style: TextStyle(
                                 color: AppColors.buttonPrimary,
@@ -969,7 +885,7 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
+                      const Text(
                         'remaining',
                         style: TextStyle(
                           color: AppColors.textMuted,
@@ -979,7 +895,7 @@ class HomeScreen extends StatelessWidget {
                     ],
                   );
                 }
-                return Text(
+                return const Text(
                   'Unlimited session',
                   style: TextStyle(
                     color: AppColors.textMuted,
@@ -1176,7 +1092,7 @@ class HomeScreen extends StatelessWidget {
 
   /// Build schedules loading state
   Widget _buildSchedulesLoadingState() {
-    return Container(
+    return SizedBox(
       height: 140,
       child: Row(
         children: List.generate(
@@ -1233,13 +1149,13 @@ class HomeScreen extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
+          const Icon(
             Icons.error_outline,
             color: AppColors.error,
             size: 32,
           ),
           const SizedBox(height: 12),
-          Text(
+          const Text(
             'Failed to load schedules',
             style: TextStyle(
               color: AppColors.error,
@@ -1294,14 +1210,14 @@ class HomeScreen extends StatelessWidget {
                 color: AppColors.buttonPrimary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(25),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.schedule_outlined,
                 color: AppColors.buttonPrimary,
                 size: 24,
               ),
             ),
             const SizedBox(height: 12),
-            Text(
+            const Text(
               'No schedules yet',
               style: TextStyle(
                 color: AppColors.textPrimary,
@@ -1310,7 +1226,7 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
+            const Text(
               'Create your first schedule to\nautomatically block apps',
               style: TextStyle(
                 color: AppColors.textSecondary,
@@ -1448,30 +1364,12 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     _formatScheduleTime(schedule),
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppColors.textMuted,
                       fontSize: 10,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  if (isCurrentlyActive)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'ACTIVE',
-                        style: TextStyle(
-                          color: AppColors.success,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -1658,10 +1556,10 @@ class HomeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Weekly Summary',
                 style: TextStyle(
                   color: AppColors.textPrimary,
@@ -1718,7 +1616,7 @@ class HomeScreen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.emoji_events, color: Colors.amber, size: 20),
+                  const Icon(Icons.emoji_events, color: Colors.amber, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1802,10 +1700,10 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Focus Insights',
                   style: TextStyle(
                     color: AppColors.textPrimary,
@@ -1845,83 +1743,6 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: stats['currentlyActive']
-                    ? AppColors.success.withOpacity(0.1)
-                    : AppColors.textMuted.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: stats['currentlyActive']
-                      ? AppColors.success.withOpacity(0.3)
-                      : AppColors.textMuted.withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    stats['currentlyActive']
-                        ? Icons.shield
-                        : Icons.schedule_outlined,
-                    color: stats['currentlyActive']
-                        ? AppColors.success
-                        : AppColors.textMuted,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          stats['currentlyActive']
-                              ? 'Focus Mode Active'
-                              : 'No Active Schedule',
-                          style: TextStyle(
-                            color: stats['currentlyActive']
-                                ? AppColors.success
-                                : AppColors.textMuted,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          stats['currentlyActive']
-                              ? 'You have an active schedule blocking apps right now!'
-                              : 'No schedules are currently running.',
-                          style: TextStyle(
-                            color: stats['currentlyActive']
-                                ? AppColors.success
-                                : AppColors.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (stats['currentlyActive'])
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.success,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'LIVE',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
           ],
         ),
       );
@@ -2121,7 +1942,7 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
@@ -2197,7 +2018,7 @@ class HomeScreen extends StatelessWidget {
                       ? NetworkImage(dashboardController.currentUserPhotoUrl)
                       : null,
               child: dashboardController.currentUserPhotoUrl.isEmpty
-                  ? Icon(Icons.person, color: AppColors.buttonPrimary)
+                  ? const Icon(Icons.person, color: AppColors.buttonPrimary)
                   : null,
             ),
             const SizedBox(width: 12),
@@ -2302,7 +2123,7 @@ class HomeScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.star, color: Colors.amber, size: 24),
+                const Icon(Icons.star, color: Colors.amber, size: 24),
                 const SizedBox(width: 8),
                 const Text(
                   'Premium Features',
@@ -2395,11 +2216,11 @@ class HomeScreen extends StatelessWidget {
       AlertDialog(
         backgroundColor: AppColors.containerBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
+        title: const Row(
           children: [
             Icon(Icons.upgrade, color: AppColors.buttonPrimary),
-            const SizedBox(width: 8),
-            const Text(
+            SizedBox(width: 8),
+            Text(
               'Upgrade to Premium',
               style: TextStyle(color: AppColors.textPrimary),
             ),
@@ -2474,11 +2295,11 @@ class HomeScreen extends StatelessWidget {
       AlertDialog(
         backgroundColor: AppColors.containerBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
+        title: const Row(
           children: [
             Icon(Icons.logout, color: AppColors.error),
-            const SizedBox(width: 8),
-            const Text(
+            SizedBox(width: 8),
+            Text(
               'Sign Out',
               style: TextStyle(color: AppColors.textPrimary),
             ),
@@ -2562,11 +2383,11 @@ class HomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (dashboardController.notificationCount.value == 0) ...[
-              Row(
+              const Row(
                 children: [
                   Icon(Icons.check_circle, color: AppColors.success, size: 20),
-                  const SizedBox(width: 8),
-                  const Text(
+                  SizedBox(width: 8),
+                  Text(
                     'All caught up!',
                     style: TextStyle(
                       color: AppColors.success,
@@ -2698,11 +2519,11 @@ class HomeScreen extends StatelessWidget {
       AlertDialog(
         backgroundColor: AppColors.containerBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
+        title: const Row(
           children: [
             Icon(Icons.refresh, color: Colors.orange),
-            const SizedBox(width: 8),
-            const Text(
+            SizedBox(width: 8),
+            Text(
               'Reset Quick Mode',
               style: TextStyle(color: AppColors.textPrimary),
             ),
@@ -2836,11 +2657,11 @@ class HomeScreen extends StatelessWidget {
       AlertDialog(
         backgroundColor: AppColors.containerBackground,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
+        title: const Row(
           children: [
             Icon(Icons.stop, color: AppColors.error),
-            const SizedBox(width: 8),
-            const Text(
+            SizedBox(width: 8),
+            Text(
               'Stop Quick Mode',
               style: TextStyle(color: AppColors.textPrimary),
             ),
@@ -2984,7 +2805,7 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
+              const Icon(
                 Icons.arrow_forward_ios,
                 color: AppColors.iconSecondary,
                 size: 16,
@@ -3075,7 +2896,7 @@ class HomeScreen extends StatelessWidget {
                                 color: AppColors.buttonPrimary.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Text(
+                              child: const Text(
                                 'RUNNING',
                                 style: TextStyle(
                                   color: AppColors.buttonPrimary,
@@ -3129,7 +2950,7 @@ class HomeScreen extends StatelessWidget {
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.buttonPrimary,
-                      side: BorderSide(color: AppColors.buttonPrimary),
+                      side: const BorderSide(color: AppColors.buttonPrimary),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -3342,7 +3163,7 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
+              const Icon(
                 Icons.arrow_forward_ios,
                 color: AppColors.iconSecondary,
                 size: 16,

@@ -5,13 +5,77 @@ import '../../../utils/constants/app_colors.dart';
 import '../../../utils/constants/app_images.dart';
 import '../controllers/auth_controller.dart';
 
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
   @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    ));
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _scaleAnimation = Tween<double>(
+      begin: 0.8,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.elasticOut,
+    ));
+
+    // Start animations
+    _fadeController.forward();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _slideController.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _slideController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Get the auth controller
     final AuthController authController = Get.find<AuthController>();
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       body: Container(
@@ -23,158 +87,221 @@ class WelcomeScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
               children: [
-                const SizedBox(height: 40),
-                // App logo
-                Hero(
-                  tag: 'app_logo',
-                  child: Image.asset(
-                    AppImages.appLogo,
-                    width: 200,
-                    height: 200,
-                  ),
-                ),
-                const SizedBox(height: 40),
-                // Welcome text
-                Text(
-                  'Welcome to Focus Block',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                // Description
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'Block distracting apps and stay focused on what truly matters to you',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.textSecondary,
+                const SizedBox(height: 60),
+
+                // Animated App logo with glow effect
+                FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: ScaleTransition(
+                    scale: _scaleAnimation,
+                    child: Hero(
+                      tag: 'app_logo',
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(100),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.white.withOpacity(0.1),
+                              blurRadius: 40,
+                              spreadRadius: 8,
+                            ),
+                          ],
                         ),
-                    textAlign: TextAlign.center,
+                        child: Image.asset(
+                          AppImages.appLogo,
+                          width: 180,
+                          height: 180,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
+
+                const SizedBox(height: 50),
+
+                // Animated welcome text
+                SlideTransition(
+                  position: _slideAnimation,
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Column(
+                      children: [
+                        // Main title with gradient effect
+                        ShaderMask(
+                          shaderCallback: (bounds) => LinearGradient(
+                            colors: [
+                              Colors.white,
+                              Colors.white.withOpacity(0.8),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ).createShader(bounds),
+                          child: Text(
+                            'Welcome to\nFocus Block',
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineLarge
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.5,
+                                  height: 1.1,
+                                ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Subtitle with better styling
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'Block distracting apps and stay focused on what truly matters to you. Take control of your digital wellbeing.',
+                            style:
+                                Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 16,
+                                      height: 1.5,
+                                      letterSpacing: 0.2,
+                                    ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
                 // Expanded space
                 const Spacer(),
-                // Social login buttons
-                Column(
-                  children: [
-                    // Google sign in button
-                    _buildSocialButton(
-                      context: context,
-                      label: 'Continue with Google',
-                      icon: 'assets/icons/google.png',
-                      onPressed: () async {
-                        await authController.loginWithGoogle();
-                      },
-                      backgroundColor: Colors.white,
-                      textColor: Colors.black87,
-                    ),
-                    const SizedBox(height: 16),
-                    // Facebook sign in button
-                    _buildSocialButton(
-                      context: context,
-                      label: 'Continue with Facebook',
-                      icon: 'assets/icons/facebook.png',
-                      onPressed: () async {
-                        // await authController.loginWithFacebook();
-                      },
-                      backgroundColor: AppColors.facebookBlue,
-                      textColor: Colors.white,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                // Divider with text
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Divider(
-                        color: AppColors.dividerColor,
-                        thickness: 1,
+
+                // Feature highlights
+                SlideTransition(
+                  position: _slideAnimation,
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 40),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildFeatureItem(
+                            icon: Icons.block,
+                            title: 'Block Apps',
+                            description: 'Distraction-free',
+                          ),
+                          _buildFeatureItem(
+                            icon: Icons.timer,
+                            title: 'Focus Timer',
+                            description: 'Stay productive',
+                          ),
+                          _buildFeatureItem(
+                            icon: Icons.analytics,
+                            title: 'Insights',
+                            description: 'Track progress',
+                          ),
+                        ],
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Text(
-                        'or',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textMuted,
-                            ),
-                      ),
+                  ),
+                ),
+
+                // Action buttons
+                SlideTransition(
+                  position: _slideAnimation,
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Column(
+                      children: [
+                        // Get Started (Register) button
+                        _buildPrimaryButton(
+                          context: context,
+                          label: 'Get Started',
+                          icon: Icons.arrow_forward,
+                          onPressed: () {
+                            Get.toNamed(AppRoutes.register);
+                          },
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Login button
+                        _buildSecondaryButton(
+                          context: context,
+                          label: 'Already have an account? Sign In',
+                          onPressed: () {
+                            Get.toNamed(AppRoutes.login);
+                          },
+                        ),
+                      ],
                     ),
-                    const Expanded(
-                      child: Divider(
-                        color: AppColors.dividerColor,
-                        thickness: 1,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 20),
-                // Sign up button
-                _buildPrimaryButton(
-                  context: context,
-                  label: 'Sign Up',
-                  icon: Icons.person_add,
-                  onPressed: () {
-                    Get.toNamed(AppRoutes.register);
-                  },
-                ),
-                const SizedBox(height: 16),
-                // Login button
-                _buildSecondaryButton(
-                  context: context,
-                  label: 'Already have an account? Login',
-                  onPressed: () {
-                    Get.toNamed(AppRoutes.login);
-                  },
-                ),
+
                 // Error message
                 Obx(
                   () => authController.errorMessage.isEmpty
                       ? const SizedBox.shrink()
-                      : Container(
-                          margin: const EdgeInsets.only(top: 20),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.error.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: AppColors.error,
-                                size: 20,
+                      : SlideTransition(
+                          position: _slideAnimation,
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 20),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.red.withOpacity(0.3),
+                                width: 1,
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  authController.errorMessage.value,
-                                  style: const TextStyle(
-                                    color: AppColors.error,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red.shade300,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    authController.errorMessage.value,
+                                    style: TextStyle(
+                                      color: Colors.red.shade300,
+                                      fontSize: 14,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                 ),
-                const SizedBox(height: 20),
-                // Terms and privacy
-                Text(
-                  'By continuing, you agree to our Terms & Privacy Policy',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
+
                 const SizedBox(height: 30),
+
+                // Terms and privacy with better styling
+                SlideTransition(
+                  position: _slideAnimation,
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        'By continuing, you agree to our Terms of Service and Privacy Policy',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textMuted,
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 40),
               ],
             ),
           ),
@@ -183,47 +310,54 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSocialButton({
-    required BuildContext context,
-    required String label,
-    required String icon,
-    required VoidCallback onPressed,
-    required Color backgroundColor,
-    required Color textColor,
+  Widget _buildFeatureItem({
+    required IconData icon,
+    required String title,
+    required String description,
   }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor,
-          foregroundColor: textColor,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+    return Column(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withOpacity(0.15),
+                Colors.white.withOpacity(0.05),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.1),
+              width: 1,
+            ),
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white.withOpacity(0.8),
+            size: 24,
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              icon,
-              width: 24,
-              height: 24,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        const SizedBox(height: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-      ),
+        Text(
+          description,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.6),
+            fontSize: 10,
+          ),
+        ),
+      ],
     );
   }
 
@@ -233,15 +367,32 @@ class WelcomeScreen extends StatelessWidget {
     required IconData icon,
     required VoidCallback onPressed,
   }) {
-    return SizedBox(
+    return Container(
       width: double.infinity,
       height: 56,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.buttonPrimary,
+            AppColors.buttonPrimary.withOpacity(0.8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.buttonPrimary.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.buttonPrimary,
-          foregroundColor: AppColors.textPrimary,
-          elevation: 0,
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -249,14 +400,20 @@ class WelcomeScreen extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: AppColors.textPrimary),
-            const SizedBox(width: 12),
             Text(
               label,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 20,
             ),
           ],
         ),
@@ -269,18 +426,41 @@ class WelcomeScreen extends StatelessWidget {
     required String label,
     required VoidCallback onPressed,
   }) {
-    return TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.textPrimary,
-        padding: const EdgeInsets.symmetric(vertical: 16),
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.2),
+          width: 1.5,
+        ),
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withOpacity(0.05),
+            Colors.white.withOpacity(0.02),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
       ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w500,
-            ),
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.3,
+          ),
+        ),
       ),
     );
   }
