@@ -116,11 +116,28 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
+  // FIXED: Profile picture update handler
   Widget _buildProfileAvatar(ProfileController profileController) {
     return Obx(() => GestureDetector(
           onTap: profileController.isUpdatingPhoto.value
               ? null
-              : () => profileController.updateProfilePicture(),
+              : () async {
+                  // Call updateProfilePicture without auto success message
+                  bool success = await profileController.updateProfilePicture(
+                      showSuccessMessage: false);
+
+                  if (success) {
+                    // Show our own success message
+                    Get.snackbar(
+                      'Success',
+                      'Profile picture updated successfully!',
+                      snackPosition: SnackPosition.TOP,
+                      backgroundColor: AppColors.success,
+                      colorText: Colors.white,
+                      duration: const Duration(seconds: 2),
+                    );
+                  }
+                },
           child: Stack(
             children: [
               Container(
@@ -304,7 +321,7 @@ class AccountScreen extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Full Name Field - FIXED
+          // Full Name Field
           _buildInputField(
             label: 'Full Name',
             controller: profileController.nameController,
@@ -326,7 +343,7 @@ class AccountScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // Phone Field - FIXED with validation
+          // Phone Field
           _buildInputField(
             label: 'Phone Number (Optional)',
             controller: profileController.phoneController,
@@ -666,17 +683,17 @@ class AccountScreen extends StatelessWidget {
               ? null
               : () => _showEditProfileBottomSheet(profileController),
           borderRadius: BorderRadius.circular(16),
-          child: Center(
+          child: const Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.edit_outlined,
                   color: Colors.white,
                   size: 20,
                 ),
-                const SizedBox(width: 12),
-                const Text(
+                SizedBox(width: 12),
+                Text(
                   'Edit Profile',
                   style: TextStyle(
                     color: Colors.white,
@@ -692,6 +709,7 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
+  // FIXED: Save button with proper error handling
   Widget _buildSaveButton(
       ProfileController profileController, bool hasChanges) {
     return Obx(() {
@@ -728,7 +746,8 @@ class AccountScreen extends StatelessWidget {
                     // Validate form first
                     if (profileController.profileFormKey.currentState!
                         .validate()) {
-                      bool success = await profileController.updateProfile();
+                      bool success = await profileController.updateProfile(
+                          showSuccessMessage: false);
                       if (success) {
                         Get.snackbar(
                           'Success',
@@ -1066,12 +1085,32 @@ class _EditProfileBottomSheetState extends State<_EditProfileBottomSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Profile Picture Section
+                    // FIXED: Profile Picture Section
                     Center(
                       child: GestureDetector(
-                        onTap: () {
+                        onTap: () async {
+                          // Close bottom sheet first
                           Get.back();
-                          widget.profileController.updateProfilePicture();
+
+                          // Wait for bottom sheet to close
+                          await Future.delayed(
+                              const Duration(milliseconds: 300));
+
+                          // Update profile picture without auto success message
+                          bool success = await widget.profileController
+                              .updateProfilePicture(showSuccessMessage: false);
+
+                          if (success) {
+                            // Show success message
+                            Get.snackbar(
+                              'Success',
+                              'Profile picture updated successfully!',
+                              snackPosition: SnackPosition.TOP,
+                              backgroundColor: AppColors.success,
+                              colorText: Colors.white,
+                              duration: const Duration(seconds: 2),
+                            );
+                          }
                         },
                         child: Stack(
                           children: [
@@ -1441,28 +1480,49 @@ class _EditProfileBottomSheetState extends State<_EditProfileBottomSheet> {
     );
   }
 
+  // FIXED: _saveChanges method
   Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    // Update the main controllers with new values
-    widget.profileController.nameController.text = _nameController.text.trim();
-    widget.profileController.phoneController.text =
-        _phoneController.text.trim();
+    try {
+      // Update the main controllers with new values
+      widget.profileController.nameController.text =
+          _nameController.text.trim();
+      widget.profileController.phoneController.text =
+          _phoneController.text.trim();
 
-    // Save changes
-    bool success = await widget.profileController.updateProfile();
+      // Save changes WITHOUT showing success message (we'll show our own)
+      bool success = await widget.profileController
+          .updateProfile(showSuccessMessage: false);
 
-    if (success) {
-      Get.back(); // Close bottom sheet
+      if (success) {
+        // Close bottom sheet first
+        Get.back();
+
+        // Wait a moment for the bottom sheet to close
+        await Future.delayed(const Duration(milliseconds: 200));
+
+        // Show success message
+        Get.snackbar(
+          'Success',
+          'Profile updated successfully!',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: AppColors.success,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
+      }
+    } catch (e) {
+      print('Error in _saveChanges: $e');
       Get.snackbar(
-        'Success',
-        'Profile updated successfully!',
+        'Error',
+        'Failed to save changes. Please try again.',
         snackPosition: SnackPosition.TOP,
-        backgroundColor: AppColors.success,
+        backgroundColor: Colors.red,
         colorText: Colors.white,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 3),
       );
     }
   }
