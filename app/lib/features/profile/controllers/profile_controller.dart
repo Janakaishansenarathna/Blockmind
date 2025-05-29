@@ -169,7 +169,7 @@ class ProfileController extends GetxController {
       else {
         _log('AuthController unavailable, trying auth service...');
         try {
-          user = await _authService.getCurrentUser();
+          user = (_authService.currentUser!) as UserModel?;
           if (user != null) {
             _log('User loaded from auth service: ${user.name}');
           }
@@ -293,7 +293,7 @@ class ProfileController extends GetxController {
       }
 
       // Start update process
-      _setLoadingState(true, 'Updating profile...');
+      // _setLoadingState(true, 'Updating profile...');
       _log(
           'Starting profile update process with changes: ${changeInfo.description}');
 
