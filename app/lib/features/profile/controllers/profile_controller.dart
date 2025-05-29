@@ -293,7 +293,7 @@ class ProfileController extends GetxController {
       }
 
       // Start update process
-      _setLoadingState(true, 'Updating profile...');
+      // _setLoadingState(true, 'Updating profile...');
       _log(
           'Starting profile update process with changes: ${changeInfo.description}');
 
