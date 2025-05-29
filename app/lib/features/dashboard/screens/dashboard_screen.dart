@@ -113,9 +113,9 @@ class HomeScreen extends StatelessWidget {
                   _buildQuickActionsSection(dashboardController),
                   const SizedBox(height: 24),
 
-                  // Footer Section
-                  _buildFooterSection(dashboardController),
-                  const SizedBox(height: 16),
+                  // // Footer Section
+                  // _buildFooterSection(dashboardController),
+                  // const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -1092,7 +1092,7 @@ class HomeScreen extends StatelessWidget {
 
   /// Build schedules loading state
   Widget _buildSchedulesLoadingState() {
-    return Container(
+    return SizedBox(
       height: 140,
       child: Row(
         children: List.generate(
@@ -1370,24 +1370,6 @@ class HomeScreen extends StatelessWidget {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  if (isCurrentlyActive)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'ACTIVE',
-                        style: TextStyle(
-                          color: AppColors.success,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -1761,83 +1743,6 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: stats['currentlyActive']
-                    ? AppColors.success.withOpacity(0.1)
-                    : AppColors.textMuted.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: stats['currentlyActive']
-                      ? AppColors.success.withOpacity(0.3)
-                      : AppColors.textMuted.withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    stats['currentlyActive']
-                        ? Icons.shield
-                        : Icons.schedule_outlined,
-                    color: stats['currentlyActive']
-                        ? AppColors.success
-                        : AppColors.textMuted,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          stats['currentlyActive']
-                              ? 'Focus Mode Active'
-                              : 'No Active Schedule',
-                          style: TextStyle(
-                            color: stats['currentlyActive']
-                                ? AppColors.success
-                                : AppColors.textMuted,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          stats['currentlyActive']
-                              ? 'You have an active schedule blocking apps right now!'
-                              : 'No schedules are currently running.',
-                          style: TextStyle(
-                            color: stats['currentlyActive']
-                                ? AppColors.success
-                                : AppColors.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (stats['currentlyActive'])
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.success,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'LIVE',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
           ],
         ),
       );

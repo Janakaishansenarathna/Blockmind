@@ -12,6 +12,7 @@ class RegisterScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Get the auth controller
     final AuthController authController = Get.find<AuthController>();
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       body: Container(
@@ -19,230 +20,289 @@ class RegisterScreen extends StatelessWidget {
           gradient: AppColors.backgroundGradient,
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Back button
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back_ios,
-                      color: AppColors.iconPrimary,
-                    ),
-                    onPressed: () {
-                      Get.back();
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Register title
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'Create Account',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Description
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'Join Focus Block to improve your productivity and mindful tech usage',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-                // App logo
-                Center(
-                  child: Hero(
-                    tag: 'app_logo',
-                    child: Image.asset(
-                      AppImages.register,
-                      width: 200,
-                      height: 200,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-                // Signup options section
-                Column(
-                  children: [
-                    // Email/Password signup button
-                    _buildSignupButton(
-                      context: context,
-                      label: 'Sign up with Email',
-                      icon: Icons.email_outlined,
-                      onPressed: () {
-                        Get.toNamed(AppRoutes.emailRegister);
-                      },
-                      backgroundColor: AppColors.buttonPrimary,
-                      textColor: Colors.white,
-                    ),
-                    const SizedBox(height: 16),
-                    // Google signup button
-                    _buildSocialSignupButton(
-                      context: context,
-                      label: 'Sign up with Google',
-                      icon: 'assets/icons/google.png',
-                      onPressed: () async {
-                        await authController.registerWithGoogle();
-                      },
-                      backgroundColor: Colors.white,
-                      textColor: Colors.black87,
-                    ),
-                    const SizedBox(height: 16),
-                    // Facebook signup button (placeholder)
-                    _buildSocialSignupButton(
-                      context: context,
-                      label: 'Sign up with Facebook',
-                      icon: 'assets/icons/facebook.png',
-                      onPressed: () async {
-                        Get.snackbar(
-                          'Coming Soon',
-                          'Facebook signup will be available in a future update',
-                          snackPosition: SnackPosition.TOP,
-                          backgroundColor: AppColors.warningBackground,
-                          colorText: AppColors.warning,
-                        );
-                      },
-                      backgroundColor: AppColors.facebookBlue,
-                      textColor: Colors.white,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-                // Privacy checkbox
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Row(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: size.height -
+                    MediaQuery.of(context).padding.top -
+                    MediaQuery.of(context).padding.bottom,
+              ),
+              child: IntrinsicHeight(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Obx(() => Checkbox(
-                            value: authController.acceptedTerms.value,
-                            onChanged: (value) {
-                              authController.acceptedTerms.value =
-                                  value ?? false;
+                      // Back button
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.arrow_back_ios,
+                            color: AppColors.iconPrimary,
+                          ),
+                          onPressed: () {
+                            Get.back();
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Register title
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Create Account',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineLarge
+                              ?.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Description
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Join Focus Block to improve your productivity and mindful tech usage',
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      // App logo
+                      Center(
+                        child: Hero(
+                          tag: 'app_logo',
+                          child: Image.asset(
+                            AppImages.register,
+                            width: 200,
+                            height: 200,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      // Signup options section
+                      Column(
+                        children: [
+                          // Email/Password signup button
+                          _buildSignupButton(
+                            context: context,
+                            label: 'Sign up with Email',
+                            icon: Icons.email_outlined,
+                            onPressed: () {
+                              Get.toNamed(AppRoutes.emailRegister);
                             },
-                            activeColor: AppColors.buttonPrimary,
-                            checkColor: AppColors.textPrimary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            side: const BorderSide(
-                              color: AppColors.textSecondary,
-                              width: 1.5,
-                            ),
-                          )),
-                      Expanded(
+                            backgroundColor: AppColors.buttonPrimary,
+                            textColor: Colors.white,
+                          ),
+                          const SizedBox(height: 16),
+                          // Google signup button
+                          _buildSocialSignupButton(
+                            context: context,
+                            label: 'Sign up with Google',
+                            icon: 'assets/icons/google.png',
+                            onPressed: () async {
+                              await authController.registerWithGoogle();
+                            },
+                            backgroundColor: Colors.white,
+                            textColor: Colors.black87,
+                          ),
+                          const SizedBox(height: 16),
+                          // Facebook signup button (placeholder)
+                          _buildSocialSignupButton(
+                            context: context,
+                            label: 'Sign up with Facebook',
+                            icon: 'assets/icons/facebook.png',
+                            onPressed: () async {
+                              Get.snackbar(
+                                'Coming Soon',
+                                'Facebook signup will be available in a future update',
+                                snackPosition: SnackPosition.TOP,
+                                backgroundColor: AppColors.warningBackground,
+                                colorText: AppColors.warning,
+                              );
+                            },
+                            backgroundColor: AppColors.facebookBlue,
+                            textColor: Colors.white,
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Sign in link
+                      Center(
                         child: RichText(
                           text: TextSpan(
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: AppColors.textMuted,
-                                    ),
-                            children: const [
-                              TextSpan(
-                                text: 'I agree to the ',
-                              ),
-                              TextSpan(
-                                text: 'Terms of Service',
-                                style: TextStyle(
-                                  color: AppColors.accent,
-                                  fontWeight: FontWeight.bold,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: AppColors.textSecondary,
                                 ),
-                              ),
-                              TextSpan(
-                                text: ' and ',
-                              ),
-                              TextSpan(
-                                text: 'Privacy Policy',
-                                style: TextStyle(
-                                  color: AppColors.accent,
-                                  fontWeight: FontWeight.bold,
+                            children: [
+                              const TextSpan(text: "Already have an account? "),
+                              WidgetSpan(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    authController.clearRegisterForm();
+                                    Get.toNamed(AppRoutes.login);
+                                  },
+                                  child: Text(
+                                    'Sign In',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: AppColors.accent,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ),
+                      const SizedBox(height: 32),
+                      // Privacy checkbox
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Row(
+                          children: [
+                            Obx(() => Checkbox(
+                                  value: authController.acceptedTerms.value,
+                                  onChanged: (value) {
+                                    authController.acceptedTerms.value =
+                                        value ?? false;
+                                  },
+                                  activeColor: AppColors.buttonPrimary,
+                                  checkColor: AppColors.textPrimary,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  side: const BorderSide(
+                                    color: AppColors.textSecondary,
+                                    width: 1.5,
+                                  ),
+                                )),
+                            Expanded(
+                              child: RichText(
+                                text: TextSpan(
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: AppColors.textMuted,
+                                      ),
+                                  children: const [
+                                    TextSpan(
+                                      text: 'I agree to the ',
+                                    ),
+                                    TextSpan(
+                                      text: 'Terms of Service',
+                                      style: TextStyle(
+                                        color: AppColors.accent,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: ' and ',
+                                    ),
+                                    TextSpan(
+                                      text: 'Privacy Policy',
+                                      style: TextStyle(
+                                        color: AppColors.accent,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Flexible space instead of Spacer for scrollable content
+                      const SizedBox(height: 40),
+
+                      // Error messages
+                      Obx(() {
+                        return authController.errorMessage.isEmpty
+                            ? const SizedBox.shrink()
+                            : Container(
+                                margin: const EdgeInsets.only(bottom: 20),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.error.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppColors.error.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: AppColors.error,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        authController.errorMessage.value,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: AppColors.error,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                      }),
+                      // Loading indicator
+                      Obx(() {
+                        return authController.isLoading.value
+                            ? const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.only(bottom: 20),
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppColors.buttonPrimary),
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink();
+                      }),
+                      // Terms notice
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 30),
+                          child: Text(
+                            'By signing up, you agree to our Terms and Privacy Policy',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppColors.textMuted,
+                                    ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const Spacer(),
-                // Error messages
-                Obx(() {
-                  return authController.errorMessage.isEmpty
-                      ? const SizedBox.shrink()
-                      : Container(
-                          margin: const EdgeInsets.only(bottom: 20),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.error.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: AppColors.error.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: AppColors.error,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  authController.errorMessage.value,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(
-                                        color: AppColors.error,
-                                      ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                }),
-                // Loading indicator
-                Obx(() {
-                  return authController.isLoading.value
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.only(bottom: 20),
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                  AppColors.buttonPrimary),
-                            ),
-                          ),
-                        )
-                      : const SizedBox.shrink();
-                }),
-                // Terms notice
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 30),
-                    child: Text(
-                      'By signing up, you agree to our Terms and Privacy Policy',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textMuted,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),

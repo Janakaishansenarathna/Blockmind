@@ -130,9 +130,9 @@ class AnalysisController extends GetxController {
 
     return List.generate(24, (index) {
       double value;
-      if (index < 6)
+      if (index < 6) {
         value = 0.5 + (index * 0.2); // Early morning
-      else if (index < 12)
+      } else if (index < 12)
         value = 1.0 + (index - 6) * 0.3; // Morning
       else if (index < 18)
         value = 4.0 - (index - 12) * 0.2; // Afternoon
@@ -140,7 +140,7 @@ class AnalysisController extends GetxController {
         value = 2.0 + (index - 18) * 0.1; // Evening
 
       return ChartData(
-        label: '${index}:00',
+        label: '$index:00',
         value: value + (index % 3 == 0 ? 0.5 : 0), // Add some variation
         hour: index,
       );

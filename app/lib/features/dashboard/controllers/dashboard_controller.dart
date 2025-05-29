@@ -13,7 +13,6 @@ import '../../../data/local/models/user_model.dart';
 import '../../../data/services/app_blocker_manager.dart';
 import '../../../data/services/app_blocker_service.dart';
 import '../../../data/services/schedule_service.dart'; // ADDED: Import schedule service
-import '../../../utils/constants/app_colors.dart';
 import 'quick_mood_controller.dart';
 
 /// Production-level Dashboard Controller

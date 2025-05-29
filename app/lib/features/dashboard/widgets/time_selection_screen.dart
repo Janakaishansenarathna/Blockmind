@@ -1,4 +1,3 @@
-// presentation/screens/home/timer_selection_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
@@ -207,7 +206,7 @@ class _TimerSelectionScreenState extends State<TimerSelectionScreen> {
 
           // Time picker wheels
           Container(
-            height: 200,
+            height: 110,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [

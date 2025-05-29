@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../utils/constants/app_colors.dart';
 import '../../dashboard/controllers/dashboard_controller.dart';
@@ -19,7 +17,7 @@ class ChatbotController extends GetxController {
 
   static const String _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
-  String _apiKey = 'AIzaSyB4tY43FYA7HNkGpi5va9cJgWAmv-KwIks';
+  final String _apiKey = 'AIzaSyB4tY43FYA7HNkGpi5va9cJgWAmv-KwIks';
 
   // Observable states
   final RxList<ChatMessage> messages = <ChatMessage>[].obs;
@@ -405,7 +403,7 @@ User message:
       if (e.toString().contains('TimeoutException')) {
         return 'Sorry, the request timed out. Please check your internet connection and try again.';
       }
-      throw e;
+      rethrow;
     }
   }
 
