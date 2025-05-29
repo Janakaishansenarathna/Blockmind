@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../utils/constants/app_colors.dart';
 import 'features/activities/screens/activites_screen.dart';
+import 'features/analysis/screen/analysis_screen.dart';
 import 'features/dashboard/screens/dashboard_screen.dart';
 import 'features/profile/sreens/profile_screen.dart';
 import 'features/schedules/screens/schedule_list_screen.dart';
@@ -24,6 +25,7 @@ class _AppNavBarState extends State<AppNavBar> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const ScheduleListScreen(),
+    const AnalysisScreen(),
     const ActivityReportScreen(),
     const ProfileScreen(),
   ];
@@ -116,8 +118,13 @@ class _AppNavBarState extends State<AppNavBar> {
                     label: 'Schedules',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.bar_chart_rounded),
-                    activeIcon: Icon(Icons.bar_chart),
+                    icon: Icon(Icons.analytics_rounded),
+                    activeIcon: Icon(Icons.analytics),
+                    label: 'Analysis',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.timeline_rounded),
+                    activeIcon: Icon(Icons.timeline),
                     label: 'Activity',
                   ),
                   BottomNavigationBarItem(
